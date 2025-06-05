@@ -8,7 +8,6 @@ body {
   width: 100%;
   position: relative;
   font-family: 'Comfortaa', cursive;
-  background-color: #E6D5AC;
 }
 
 #container {
@@ -23,9 +22,14 @@ body {
   text-align: center;
   font-size: 8vh;
   transition: transform 0.5s ease;
-  color: #FFA500;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  color: #333344;
   transform: translatey(-200px) scale(1);
+}
+
+#version {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
 }
 
 #game {
@@ -49,17 +53,18 @@ body {
 }
 
 .game-over * {
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
   opacity: 0;
   transform: translatey(-100px);
-  color: #FFA500;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  color: #333344;
 }
 
 .game-over h2 {
   margin: 0;
   padding: 0;
-  font-size: 36px;
+  font-size: 28px;
 }
 
 .game-ready {
@@ -75,22 +80,17 @@ body {
 }
 
 .game-ready #start-button {
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
   opacity: 0;
   transform: translatey(-50px);
-  border: 3px solid #FFA500;
-  padding: 10px 20px;
-  background-color: rgba(255, 165, 0, 0.1);
-  color: #FFA500;
-  font-size: 30px;
-  border-radius: 15px;
-  cursor: pointer;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-}
 
-.game-ready #start-button:hover {
-  background-color: rgba(255, 165, 0, 0.2);
-  transform: scale(1.05);
+  border: 3px solid #333344;
+  padding: 10px 20px;
+  background-color: transparent;
+  color: #333344;
+  font-size: 30px;
 }
 
 #instructions {
@@ -99,10 +99,10 @@ body {
   top: 29vh;
   left: 0;
   text-align: center;
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
   opacity: 0;
-  color: #FFA500;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 #instructions.hide {
@@ -143,21 +143,19 @@ body {
   transform: translateX(-50%);
   right: 10px;
   width: 90%;
-  background-color: rgba(255, 255, 255, 0.9);
-  border: solid 3px #FFA500;
+  background-color: #fff;
+  border: solid 3px #333344;
   padding: 8px 10px;
   display: flex;
   align-items: center;
   gap: 10px;
   z-index: 100;
-  border-radius: 10px;
 }
 
 .leaderboard-title {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: bold;
   flex-shrink: 0;
-  color: #FFA500;
 }
 
 #leaderboard-list {
@@ -179,18 +177,49 @@ body {
   align-items: center;
   gap: 5px;
   flex-shrink: 0;
-  font-size: 10px;
-  background-color: rgba(255, 165, 0, 0.1);
-  padding: 4px 6px;
-  border-radius: 8px;
-  color: #FFA500;
+  font-size: 8px;
+  background-color: #d0cbc7;
+  padding: 2px 3px;
 }
 
 #leaderboard-list img {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   object-fit: contain;
   overflow: hidden;
-  border: 2px solid #FFA500;
+}
+
+#feed {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 140px;
+  height: 130px;
+  overflow-y: auto;
+  z-index: 100;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+#feed::-webkit-scrollbar {
+  display: none;
+}
+
+#feed .feed-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+#feed .feed-item img {
+  width: 20px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: contain;
+  overflow: hidden;
 }
