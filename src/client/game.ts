@@ -1,11 +1,11 @@
 import { Easing, Tween, update as tweenjsUpdate } from '@tweenjs/tween.js';
 import Stats from 'three/examples/jsm/libs/stats.module';
-import { Vector3, CylinderGeometry, Mesh, MeshStandardMaterial, BoxGeometry } from 'three';
-import * as CANNON from 'cannon-es';
+import { Vector3 } from 'three';
 import { Block } from './block';
 import { Stage } from './stage';
 import { Ticker } from './ticker';
 import { getEnv } from './utils/env';
+import { Pool } from './utils/pool';
 import { Devvit } from './devvit';
 import type { PostConfig } from '../shared/types/postConfig';
 import { User } from '../shared/types/user';
@@ -24,181 +24,91 @@ export class Game {
 
   private state: GameState = 'loading';
   private stage!: Stage;
-  private fry!: Block;
-  private friesBag!: Mesh;
-  private floor!: Mesh;
-  
-  private world!: CANNON.World;
-  private fryBody!: CANNON.Body;
-  private bagBody!: CANNON.Body;
-  private floorBody!: CANNON.Body;
+  private blocks: Block[] = [];
 
-  private score: number = 0;
-  private flipPower: number = 0;
-  private isCharging: boolean = false;
-  private maxFlipPower: number = 15;
-  private chargeRate: number = 0.5;
+  private pool!: Pool<Block>;
 
   private stats!: Stats;
-  private config!: PostConfig;
-  
+
+  private colorOffset!: number;
+
   private userAllTimeStats: {
     score: number;
     rank: number;
   } | null = null;
 
+  /** Configuration data received from the init message */
+  private config!: PostConfig;
+
   public async prepare(width: number, height: number, devicePixelRatio: number): Promise<void> {
+    // Fetch init data directly from the API endpoint
+    let initData: InitMessage;
     try {
       const response = await fetch(`/api/init`);
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`);
       }
       const data = await response.json();
+      // Basic type check
       if (data.type !== 'init') {
         throw new Error('Invalid init data received');
       }
-      const initData = data as InitMessage;
-
-      this.devvit = new Devvit({
-        userId: initData.user.id,
-      });
-
-      this.config = initData.postConfig;
-      this.userAllTimeStats = initData.userAllTimeStats;
-
-      this.setupDOMElements();
-      this.updateLeaderboard(initData.leaderboard);
-      this.setupPhysicsWorld();
-      this.setupStage(width, height, devicePixelRatio);
-      this.createGameElements();
-
-      if (getEnv().MODE === 'development') {
-        this.stats = Stats();
-        document.body.appendChild(this.stats.dom);
-      }
-
-      this.ticker = new Ticker((currentTime: number, deltaTime: number) => {
-        tweenjsUpdate(currentTime);
-        this.world.step(1/60);
-        this.updatePhysics();
-        this.checkCollisions();
-        if (this.isCharging && this.flipPower < this.maxFlipPower) {
-          this.flipPower += this.chargeRate;
-        }
-        this.render();
-        this.stats?.update();
-      });
-
-      this.updateState('ready');
-      this.instructions.innerHTML = "Click Start to begin!";
+      initData = data as InitMessage;
+      console.log('Received init data:', initData);
     } catch (error) {
-      console.error('Failed to initialize game:', error);
+      console.error('Failed to fetch init data:', error);
+      // Handle error appropriately - maybe show an error message in the UI
+      this.updateState('loading'); // Keep showing loading or show error state
+      // Optional: Display error to user
       const container = document.getElementById('container');
       if (container) {
-        container.innerHTML = '<p style="color: red; padding: 1em;">Failed to load game configuration. Please try refreshing.</p>';
+        container.innerHTML =
+          '<p style="color: red; padding: 1em;">Failed to load game configuration. Please try refreshing.</p>';
       }
+      return; // Stop preparation
     }
-  }
 
-  private setupDOMElements(): void {
+    this.devvit = new Devvit({
+      userId: initData.user.id,
+    });
+
+    // Save per-post configuration for use throughout the game
+    this.config = initData.postConfig;
+    this.userAllTimeStats = initData.userAllTimeStats;
+
     this.mainContainer = document.getElementById('container') as HTMLElement;
     this.scoreContainer = document.getElementById('score') as HTMLElement;
     this.instructions = document.getElementById('instructions') as HTMLElement;
     this.leaderboardList = document.getElementById('leaderboard-list') as HTMLElement;
     this.gameOverText = document.getElementById('game-over-text') as HTMLElement;
+
+    this.updateLeaderboard(initData.leaderboard);
+
     this.scoreContainer.innerHTML = '0';
-  }
 
-  private setupPhysicsWorld(): void {
-    this.world = new CANNON.World({
-      gravity: new CANNON.Vec3(0, -9.82, 0)
-    });
-  }
-
-  private setupStage(width: number, height: number, devicePixelRatio: number): void {
     this.stage = new Stage(this.config, devicePixelRatio);
     this.stage.resize(width, height);
-    this.stage.setCustomCamera(15, 10, 15);
-  }
 
-  private createGameElements(): void {
-    this.createFloor();
-    this.createFriesBag();
-    this.createFry();
-  }
+    this.blocks = [];
+    this.addBaseBlock();
 
-  private createFloor(): void {
-    const geometry = new BoxGeometry(20, 0.1, 20);
-    const material = new MeshStandardMaterial({ color: 0xcccccc });
-    this.floor = new Mesh(geometry, material);
-    this.floor.position.set(0, -0.05, 0);
-    this.stage.add(this.floor);
+    this.pool = new Pool(() => new Block());
 
-    this.floorBody = new CANNON.Body({
-      mass: 0,
-      shape: new CANNON.Box(new CANNON.Vec3(10, 0.05, 10)),
-      position: new CANNON.Vec3(0, -0.05, 0)
-    });
-    this.world.addBody(this.floorBody);
-  }
-
-  private createFriesBag(): void {
-    const geometry = new CylinderGeometry(2, 1.5, 4, 32);
-    const material = new MeshStandardMaterial({ 
-      color: 0xFFFFFF,
-      roughness: 0.8,
-      metalness: 0.1
-    });
-    this.friesBag = new Mesh(geometry, material);
-    this.friesBag.position.set(5, 2, 5);
-    this.stage.add(this.friesBag);
-
-    this.bagBody = new CANNON.Body({
-      mass: 0,
-      shape: new CANNON.Cylinder(2, 1.5, 4, 32),
-      position: new CANNON.Vec3(5, 2, 5)
-    });
-    this.world.addBody(this.bagBody);
-  }
-
-  private createFry(): void {
-    const startX = Math.random() * 10 - 5;
-    const startZ = Math.random() * 10 - 5;
-    
-    this.fry = new Block(new Vector3(0.3, 2, 0.3));
-    this.fry.position.set(startX, 1, startZ);
-    this.stage.add(this.fry.getMesh());
-
-    if (this.fryBody) {
-      this.world.removeBody(this.fryBody);
+    if (getEnv().MODE === 'development') {
+      this.stats = Stats();
+      document.body.appendChild(this.stats.dom);
     }
 
-    this.fryBody = new CANNON.Body({
-      mass: 1,
-      shape: new CANNON.Box(new CANNON.Vec3(0.15, 1, 0.15)),
-      position: new CANNON.Vec3(startX, 1, startZ)
+    this.ticker = new Ticker((currentTime: number, deltaTime: number) => {
+      tweenjsUpdate(currentTime);
+
+      this.update(deltaTime);
+      this.render();
+
+      this.stats?.update();
     });
-    this.world.addBody(this.fryBody);
-  }
 
-  private checkCollisions(): void {
-    if (!this.fryBody || !this.bagBody) return;
-
-    const distance = this.fryBody.position.distanceTo(this.bagBody.position);
-    const heightDiff = this.fryBody.position.y - this.bagBody.position.y;
-
-    if (distance < 2 && heightDiff > 0 && heightDiff < 4) {
-      this.score += 1;
-      this.scoreContainer.innerHTML = this.score.toString();
-      this.createFry();
-    }
-  }
-
-  private updatePhysics(): void {
-    if (this.fry && this.fryBody) {
-      this.fry.position.copy(this.fryBody.position as any);
-      this.fry.quaternion.copy(this.fryBody.quaternion as any);
-    }
+    this.updateState('ready');
   }
 
   public async start(): Promise<void> {
@@ -213,6 +123,10 @@ export class Game {
     this.stage.resize(width, height);
   }
 
+  private update(deltaTime: number): void {
+    this.moveCurrentBlock(deltaTime);
+  }
+
   private render(): void {
     this.stage.render();
   }
@@ -223,24 +137,13 @@ export class Game {
     this.mainContainer.classList.add(this.state);
   }
 
-  public async onMouseDown(): Promise<void> {
-    if (this.state === 'playing') {
-      this.isCharging = true;
-      this.flipPower = 0;
-    }
-  }
-
-  public async onMouseUp(): Promise<void> {
-    if (this.state === 'playing' && this.isCharging) {
-      this.isCharging = false;
-      this.flipFry();
-    }
-  }
-
   public async action(): Promise<void> {
     switch (this.state) {
       case 'ready':
         await this.startGame();
+        break;
+      case 'playing':
+        await this.placeBlock();
         break;
       case 'ended':
         await this.restartGame();
@@ -248,40 +151,230 @@ export class Game {
     }
   }
 
-  private flipFry(): void {
-    const upForce = this.flipPower * 2;
-    const horizontalForce = this.flipPower;
-    
-    const direction = new CANNON.Vec3();
-    direction.copy(this.bagBody.position as any);
-    direction.vsub(this.fryBody.position, direction);
-    direction.normalize();
-    
-    const force = new CANNON.Vec3(
-      direction.x * horizontalForce,
-      upForce,
-      direction.z * horizontalForce
-    );
-    
-    this.fryBody.applyImpulse(force, this.fryBody.position);
-    this.flipPower = 0;
-  }
-
-  private startGame(): void {
-    this.score = 0;
+  private async startGame(): Promise<void> {
+    if (this.state === 'playing') return;
+    this.colorOffset = Math.round(Math.random() * 100);
     this.scoreContainer.innerHTML = '0';
     this.updateState('playing');
-    this.instructions.innerHTML = "Hold to charge, release to flip!";
-    this.instructions.classList.remove('hide');
+    this.addBlock(this.blocks[0]!);
   }
 
   private async restartGame(): Promise<void> {
-    this.score = 0;
-    this.scoreContainer.innerHTML = '0';
-    this.createFry();
-    this.updateState('playing');
-    this.instructions.innerHTML = "Hold to charge, release to flip!";
-    this.instructions.classList.remove('hide');
+    this.updateState('resetting');
+
+    const length = this.blocks.length;
+    const duration = 200;
+    const delay = 20;
+
+    for (let i = length - 1; i > 0; i--) {
+      new Tween(this.blocks[i]!.scale)
+        .to({ x: 0, y: 0, z: 0 }, duration)
+        .delay((length - i - 1) * delay)
+        .easing(Easing.Cubic.In)
+        .onComplete(() => {
+          this.stage.remove(this.blocks[i]!.getMesh());
+          this.pool.release(this.blocks[i]!);
+        })
+        .start();
+
+      new Tween(this.blocks[i]!.rotation)
+        .to({ y: 0.5 }, duration)
+        .delay((length - i - 1) * delay)
+        .easing(Easing.Cubic.In)
+        .start();
+    }
+
+    const cameraMoveSpeed = duration * 2 + length * delay;
+    this.stage.resetCamera(cameraMoveSpeed);
+
+    const countdown = { value: length - 1 - 1 };
+    new Tween(countdown)
+      .to({ value: 0 }, cameraMoveSpeed)
+      .onUpdate(() => {
+        this.scoreContainer.innerHTML = String(Math.floor(countdown.value));
+      })
+      .start();
+
+    setTimeout(async () => {
+      this.blocks = this.blocks.slice(0, 1);
+      await this.startGame();
+    }, cameraMoveSpeed);
+  }
+
+  private async endGame(): Promise<void> {
+    const score = Number(this.scoreContainer.innerText);
+    const data = await this.devvit.gameOver(score);
+
+    if (this.userAllTimeStats && score > this.userAllTimeStats.score) {
+      this.gameOverText.innerHTML = `New high score!`;
+    } else {
+      this.gameOverText.innerHTML = `Click or spacebar to start again`;
+    }
+    // Set the new all time stats if they play a bunch
+    this.userAllTimeStats = data.userAllTimeStats;
+    this.updateLeaderboard(data.leaderboard);
+
+    this.updateState('ended');
+  }
+
+  private async placeBlock(): Promise<void> {
+    const length = this.blocks.length;
+    const targetBlock = this.blocks[length - 2];
+    const currentBlock = this.blocks[length - 1];
+
+    const result = currentBlock!.cut(targetBlock!, this.config.gameplay.accuracy);
+
+    if (result.state === 'missed') {
+      this.stage.remove(currentBlock!.getMesh());
+      await this.endGame();
+      return;
+    }
+
+    this.scoreContainer.innerHTML = String(length - 1);
+    this.addBlock(currentBlock!);
+
+    if (result.state === 'chopped') {
+      this.addChoppedBlock(result.position!, result.scale!, currentBlock!);
+    }
+  }
+
+  private addBaseBlock(): void {
+    const { scale, color } = this.config.block.base;
+    const block = new Block(new Vector3(scale.x, scale.y, scale.z));
+    this.stage.add(block.getMesh());
+    this.blocks.push(block);
+    block.color = parseInt(color, 16);
+  }
+
+  private getRandomEffect(): BlockEffect {
+    const effects: BlockEffect[] = [
+      { type: 'grow', duration: 5000, magnitude: 0.3 },
+      { type: 'shrink', duration: 5000, magnitude: 0.2 },
+      { type: 'speed', duration: 3000, magnitude: 0.5 },
+      { type: 'slow', duration: 3000, magnitude: 0.3 },
+      { type: 'rainbow', duration: 4000, magnitude: 1 },
+      { type: 'none', duration: 0, magnitude: 0 }
+    ];
+    
+    if (Math.random() > this.config.gameplay.effectProbability) {
+      return effects[effects.length - 1]!;
+    }
+    
+    return effects[Math.floor(Math.random() * (effects.length - 1))]!;
+  }
+
+  private addBlock(targetBlock: Block): void {
+    const block = this.pool.get();
+
+    block.rotation.set(0, 0, 0);
+    block.scale.set(targetBlock.scale.x, targetBlock.scale.y, targetBlock.scale.z);
+    block.position.set(targetBlock.x, targetBlock.y + targetBlock.height, targetBlock.z);
+    block.direction.set(0, 0, 0);
+    block.color = this.getNextBlockColor();
+    
+    // Apply random magical effect
+    block.applyEffect(this.getRandomEffect());
+
+    this.stage.add(block.getMesh());
+    this.blocks.push(block);
+
+    const length = this.blocks.length;
+    if (length % 2 === 0) {
+      block.direction.x = Math.random() > 0.5 ? 1 : -1;
+    } else {
+      block.direction.z = Math.random() > 0.5 ? 1 : -1;
+    }
+
+    block.moveScalar(this.config.gameplay.distance);
+    this.stage.setCamera(block.y);
+
+    this.scoreContainer.innerHTML = String(length - 1);
+    if (length >= this.config.instructions.height) {
+      this.instructions.classList.add('hide');
+    }
+  }
+
+  private addChoppedBlock(position: Vector3, scale: Vector3, sourceBlock: Block): void {
+    const block = this.pool.get();
+
+    block.rotation.set(0, 0, 0);
+    block.scale.set(scale.x, scale.y, scale.z);
+    block.position.copy(position);
+    block.color = sourceBlock.color;
+
+    this.stage.add(block.getMesh());
+
+    const dirX = Math.sign(block.x - sourceBlock.x);
+    const dirZ = Math.sign(block.z - sourceBlock.z);
+    new Tween(block.position)
+      .to(
+        {
+          x: block.x + dirX * 10,
+          y: block.y - 30,
+          z: block.z + dirZ * 10,
+        },
+        1000
+      )
+      .easing(Easing.Quadratic.In)
+      .onComplete(() => {
+        this.stage.remove(block.getMesh());
+        this.pool.release(block);
+      })
+      .start();
+
+    new Tween(block.rotation)
+      .to({ x: dirZ * 5, z: dirX * -5 }, 900)
+      .delay(50)
+      .start();
+  }
+
+  private moveCurrentBlock(deltaTime: number): void {
+    if (this.state !== 'playing') return;
+
+    const length = this.blocks.length;
+    if (length < 2) return;
+
+    const speed = 0.16 + Math.min(0.0008 * length, 0.08);
+    this.blocks[length - 1]!.moveScalar(speed * deltaTime);
+
+    this.reverseDirection();
+  }
+
+  private reverseDirection(): void {
+    const length = this.blocks.length;
+    if (length < 2) return;
+
+    const targetBlock = this.blocks[length - 2];
+    const currentBlock = this.blocks[length - 1];
+
+    const { distance } = this.config.gameplay;
+
+    const diffX = currentBlock!.x - targetBlock!.x;
+    if (
+      (currentBlock!.direction.x === 1 && diffX > distance) ||
+      (currentBlock!.direction.x === -1 && diffX < -distance)
+    ) {
+      currentBlock!.direction.x *= -1;
+      return;
+    }
+
+    const diffZ = currentBlock!.z - targetBlock!.z;
+    if (
+      (currentBlock!.direction.z === 1 && diffZ > distance) ||
+      (currentBlock!.direction.z === -1 && diffZ < -distance)
+    ) {
+      currentBlock!.direction.z *= -1;
+      return;
+    }
+  }
+
+  private getNextBlockColor(): number {
+    const { base, range, intensity } = this.config.block.colors;
+    const offset = this.blocks.length + this.colorOffset;
+    const r = base.r + range.r * Math.sin(intensity.r * offset);
+    const g = base.g + range.g * Math.sin(intensity.g * offset);
+    const b = base.b + range.b * Math.sin(intensity.b * offset);
+    return (r << 16) + (g << 8) + b;
   }
 
   private updateLeaderboard(
@@ -289,18 +382,23 @@ export class Game {
       user: User;
       score: number;
     }[]
-  ): void {
+  ) {
+    // Note: Instead of clearing it out we should produce attribute of username:score instead of replacing the whole thing
+    // that diff would take away the flash
     this.leaderboardList.innerHTML = '';
-    leaderboard.forEach((item) => {
-      const element = document.createElement('div');
-      element.classList.add('leaderboard-item');
+
+    leaderboard.forEach((leaderboardItem) => {
+      const leaderboardItemElement = document.createElement('div');
+      leaderboardItemElement.classList.add('leaderboard-item');
+
       const img = document.createElement('img');
-      img.src = item.user.snoovatarUrl;
-      element.appendChild(img);
+      img.src = leaderboardItem.user.snoovatarUrl;
+      leaderboardItemElement.appendChild(img);
       const userText = document.createElement('span');
-      userText.innerHTML = `${item.user.username} | <b>${item.score}</b>`;
-      element.appendChild(userText);
-      this.leaderboardList.appendChild(element);
+      userText.innerHTML = `${leaderboardItem.user.username} | <b>${leaderboardItem.score}</b>`;
+      leaderboardItemElement.appendChild(userText);
+
+      this.leaderboardList.appendChild(leaderboardItemElement);
     });
   }
 }
