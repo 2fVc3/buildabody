@@ -3,35 +3,33 @@
   <head>
     <link rel="stylesheet" type="text/css" href="style.css" />
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, width=device-width, height=device-height, user-scalable=0"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="full-screen" content="yes" />
-    <meta name="x5-fullscreen" content="true" />
-    <meta name="360-fullscreen" content="true" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Tower Builder</title>
   </head>
   <body>
     <div id="container">
-      <!-- Main Menu -->
-      <div class="menu-screen" id="main-menu">
-        <h1 class="menu-title">Magical Tower Builder</h1>
-        <button class="menu-button" id="start-game">Start Game</button>
-        <button class="menu-button" id="how-to-play">How to Play</button>
+      <!-- Game Canvas -->
+      <div id="game"></div>
+      
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="player-info">
+          <img src="" alt="Player Avatar" class="player-avatar" id="player-avatar">
+          <span class="player-name" id="player-name">Player</span>
+        </div>
+        <div class="high-score">Best: <span id="high-score">0</span></div>
       </div>
 
-      <!-- Game Elements -->
-      <div id="game"></div>
+      <!-- Score -->
       <div id="score">0</div>
-      <div id="combo-meter">Perfect Stack! x<span id="combo-count">2</span></div>
-      
+
       <!-- Power-ups -->
       <div id="power-ups">
-        <div class="power-up" id="slow-time">⏰</div>
-        <div class="power-up" id="double-size">📏</div>
-        <div class="power-up" id="perfect-stack">✨</div>
+        <div class="power-up" id="slow-time" title="Slow Time">⏰</div>
+        <div class="power-up" id="perfect-stack" title="Perfect Stack">✨</div>
+        <div class="power-up" id="double-size" title="Double Size">📏</div>
       </div>
 
       <!-- Leaderboard -->
@@ -41,14 +39,14 @@
       </div>
 
       <!-- Instructions -->
-      <div id="instructions" class="hide">Click or press spacebar to stack!</div>
+      <div id="instructions" class="show">Click or press spacebar to stack!</div>
 
       <!-- Game Over Screen -->
       <div class="game-over">
         <h2>Tower Collapsed!</h2>
-        <p id="game-over-text">Click or spacebar to build again</p>
-        <button class="menu-button" id="retry">Try Again</button>
-        <button class="menu-button" id="main-menu-button">Main Menu</button>
+        <div class="game-over-score">0</div>
+        <button class="button" id="retry">Try Again</button>
+        <button class="button secondary" id="share-score">Share Score</button>
       </div>
     </div>
     <script type="module" src="main.ts"></script>
