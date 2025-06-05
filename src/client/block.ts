@@ -12,19 +12,23 @@ export class Block {
   private originalScale: Vector3;
 
   constructor(scale: Vector3 | undefined = undefined) {
+    // Create a French fry material with proper shading
     this.material = new MeshToonMaterial({
-      roughness: 0.7,
-      metalness: 0.3,
+      roughness: 0.3,
+      metalness: 0.1,
     });
-    // Create a french fry shaped geometry
-    this.mesh = new Mesh(new BoxGeometry(1, 1, 1), this.material);
+
+    // Create a French fry shaped geometry - taller than wide
+    const geometry = new BoxGeometry(1, 1, 1);
+    this.mesh = new Mesh(geometry, this.material);
+
     if (scale !== undefined) {
       this.mesh.scale.copy(scale);
       this.originalScale = scale.clone();
     }
-    
-    // Rotate the fry to stand upright
-    this.mesh.rotation.set(0, 0, Math.PI / 2);
+
+    // Rotate to make fries stand upright
+    this.mesh.rotation.set(0, 0, 0);
   }
 
   // prettier-ignore
@@ -69,14 +73,17 @@ export class Block {
     
     switch (effect.type) {
       case 'grow':
-        this.scale.multiplyScalar(1 + effect.magnitude);
+        // Scale more in height for fry effect
+        this.scale.y *= (1 + effect.magnitude * 1.5);
+        this.scale.x *= (1 + effect.magnitude * 0.5);
+        this.scale.z *= (1 + effect.magnitude * 0.5);
         break;
       case 'shrink':
         this.scale.multiplyScalar(1 - effect.magnitude);
         break;
       case 'rainbow':
-        // Make it look like it's being salted
-        this.material.color.setHSL(0.1, 0.8, 0.7);
+        // Golden-brown color variations for fries
+        this.material.color.setHSL(0.08 + Math.random() * 0.04, 0.7, 0.6);
         break;
     }
   }
@@ -84,9 +91,9 @@ export class Block {
   public moveScalar(scalar: number): void {
     let speed = scalar;
     if (this.effect.type === 'speed') {
-      speed *= (1 + effect.magnitude);
+      speed *= (1 + this.effect.magnitude);
     } else if (this.effect.type === 'slow') {
-      speed *= (1 - effect.magnitude);
+      speed *= (1 - this.effect.magnitude);
     }
 
     this.position.set(
