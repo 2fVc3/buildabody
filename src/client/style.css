@@ -1,1 +1,240 @@
-// Full updated style.css content shown above in the file changes
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap');
+
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  font-family: 'Comfortaa', cursive;
+}
+
+#container {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, #F5D6BA, #FFE4C4);
+}
+
+#score {
+  position: absolute;
+  top: 70px;
+  width: 100%;
+  text-align: center;
+  font-size: 8vh;
+  transition: transform 0.5s ease;
+  color: #8B4513;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  transform: translatey(-200px) scale(1);
+}
+
+#version {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+}
+
+#game {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.game-over {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 85%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-over * {
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
+  opacity: 0;
+  transform: translatey(-100px);
+  color: #8B4513;
+}
+
+.game-over h2 {
+  margin: 0;
+  padding: 0;
+  font-size: 28px;
+}
+
+.game-ready {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+}
+
+#start-button {
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
+  opacity: 0;
+  transform: translatey(-50px);
+  border: 3px solid #8B4513;
+  padding: 10px 20px;
+  background-color: rgba(255, 215, 0, 0.2);
+  color: #8B4513;
+  font-size: 30px;
+  border-radius: 15px;
+  cursor: pointer;
+  font-family: 'Comfortaa', cursive;
+}
+
+#start-button:hover {
+  background-color: rgba(255, 215, 0, 0.3);
+  transform: translateY(-52px);
+}
+
+#instructions {
+  position: absolute;
+  width: 100%;
+  top: 29vh;
+  left: 0;
+  text-align: center;
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
+  opacity: 0;
+  color: #8B4513;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+#instructions.hide {
+  opacity: 0 !important;
+}
+
+.playing #score,
+.resetting #score {
+  transform: translatey(0px) scale(1);
+}
+
+.playing #instructions {
+  opacity: 1;
+}
+
+.ready .game-ready #start-button {
+  opacity: 1;
+  transform: translatey(0);
+}
+
+.ended #score {
+  transform: translatey(4vh) scale(1.2);
+}
+
+.ended .game-over * {
+  opacity: 1;
+  transform: translatey(-38px);
+}
+
+.ended .game-over p {
+  transition-delay: 0.3s;
+}
+
+#leaderboard {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  right: 10px;
+  width: 90%;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: solid 3px #8B4513;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+  border-radius: 10px;
+}
+
+.leaderboard-title {
+  font-size: 10px;
+  font-weight: bold;
+  flex-shrink: 0;
+  color: #8B4513;
+}
+
+#leaderboard-list {
+  display: flex;
+  gap: 10px;
+  flex-grow: 1;
+  z-index: 100;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+#leaderboard-list::-webkit-scrollbar {
+  display: none;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: 8px;
+  background-color: rgba(255, 215, 0, 0.2);
+  padding: 2px 3px;
+  border-radius: 5px;
+  color: #8B4513;
+}
+
+#leaderboard-list img {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: contain;
+  overflow: hidden;
+}
+
+#feed {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 140px;
+  height: 130px;
+  overflow-y: auto;
+  z-index: 100;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+#feed::-webkit-scrollbar {
+  display: none;
+}
+
+#feed .feed-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+#feed .feed-item img {
+  width: 20px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: contain;
+  overflow: hidden;
+}

@@ -1,1 +1,69 @@
-// Full updated main.ts content shown above in the file changes
+import { Game } from './game';
+
+const game = new Game();
+
+function onResize(): void {
+  game.resize(window.innerWidth, window.innerHeight);
+}
+
+async function onTouchStart(event: TouchEvent): Promise<void> {
+  event.preventDefault();
+  await game.onMouseDown();
+}
+
+async function onTouchEnd(event: TouchEvent): Promise<void> {
+  event.preventDefault();
+  await game.onMouseUp();
+}
+
+async function onMouseDown(event: MouseEvent): Promise<void> {
+  event.preventDefault();
+  window.focus();
+  await game.onMouseDown();
+}
+
+async function onMouseUp(event: MouseEvent): Promise<void> {
+  event.preventDefault();
+  await game.onMouseUp();
+}
+
+async function onKeyDown(event: KeyboardEvent): Promise<void> {
+  if (event.code === 'Space') {
+    event.preventDefault();
+    await game.onMouseDown();
+  }
+}
+
+async function onKeyUp(event: KeyboardEvent): Promise<void> {
+  if (event.code === 'Space') {
+    event.preventDefault();
+    await game.onMouseUp();
+  }
+}
+
+async function onStartClick(): Promise<void> {
+  await game.action();
+}
+
+async function onLoad(): Promise<void> {
+  await game.prepare(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+  await game.start();
+
+  // Add start button click handler
+  const startButton = document.getElementById('start-button');
+  if (startButton) {
+    startButton.addEventListener('click', onStartClick);
+  }
+
+  window.addEventListener('resize', onResize, false);
+  window.addEventListener('orientationchange', onResize, false);
+  window.addEventListener('touchstart', onTouchStart, { passive: false });
+  window.addEventListener('touchend', onTouchEnd, { passive: false });
+  window.addEventListener('mousedown', onMouseDown, false);
+  window.addEventListener('mouseup', onMouseUp, false);
+  window.focus();
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+}
+
+window.addEventListener('load', onLoad, false);
