@@ -246,6 +246,23 @@ export class Game {
     block.color = parseInt(color, 16);
   }
 
+  private getRandomEffect(): BlockEffect {
+    const effects: BlockEffect[] = [
+      { type: 'grow', duration: 5000, magnitude: 0.3 },
+      { type: 'shrink', duration: 5000, magnitude: 0.2 },
+      { type: 'speed', duration: 3000, magnitude: 0.5 },
+      { type: 'slow', duration: 3000, magnitude: 0.3 },
+      { type: 'rainbow', duration: 4000, magnitude: 1 },
+      { type: 'none', duration: 0, magnitude: 0 }
+    ];
+    
+    if (Math.random() > this.config.gameplay.effectProbability) {
+      return effects[effects.length - 1]!;
+    }
+    
+    return effects[Math.floor(Math.random() * (effects.length - 1))]!;
+  }
+
   private addBlock(targetBlock: Block): void {
     const block = this.pool.get();
 
@@ -254,6 +271,9 @@ export class Game {
     block.position.set(targetBlock.x, targetBlock.y + targetBlock.height, targetBlock.z);
     block.direction.set(0, 0, 0);
     block.color = this.getNextBlockColor();
+    
+    // Apply random magical effect
+    block.applyEffect(this.getRandomEffect());
 
     this.stage.add(block.getMesh());
     this.blocks.push(block);
