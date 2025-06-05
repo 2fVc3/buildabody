@@ -7,23 +7,23 @@ const getPostConfigKey = (postId: string) => `post_config:${postId}` as const;
 const defaultPostConfig: PostConfig = {
   'block': {
     'base': {
-      'color': '0x333344',
+      'color': '0xFFA500', // Orange noodle color
       'scale': {
-        'x': 10,
-        'y': 2,
-        'z': 10,
+        'x': 12,
+        'y': 1.5,
+        'z': 12,
       },
     },
     'colors': {
       'base': {
-        'r': 200,
-        'g': 200,
-        'b': 200,
+        'r': 255,
+        'g': 165,
+        'b': 0,
       },
       'range': {
-        'r': 55,
-        'g': 55,
-        'b': 55,
+        'r': 30,
+        'g': 30,
+        'b': 30,
       },
       'intensity': {
         'r': 0.3,
@@ -33,14 +33,15 @@ const defaultPostConfig: PostConfig = {
     },
   },
   'gameplay': {
-    'distance': 12,
+    'distance': 14,
     'speed': {
-      'min': 10,
-      'max': 18,
+      'min': 8,
+      'max': 15,
       'multiplier': 0.05,
     },
-    'accuracy': 0.2,
-    'effectProbability': 0.3,
+    'accuracy': 0.3,
+    'noodleBounciness': 0.8,
+    'wiggleSpeed': 1.2,
   },
   'instructions': {
     'height': 5,
@@ -48,7 +49,7 @@ const defaultPostConfig: PostConfig = {
   'camera': {
     'near': -100,
     'far': 1000,
-    'viewSize': 30,
+    'viewSize': 35,
     'position': {
       'x': 2,
       'y': 2,
@@ -59,15 +60,15 @@ const defaultPostConfig: PostConfig = {
       'y': 0,
       'z': 0,
     },
-    'offset': 6,
+    'offset': 8,
   },
   'background': {
-    'color': '0xd0cbc7',
+    'color': '0xE6D5AC', // Warm beige background
   },
   'light': {
     'directional': {
       'color': '0xffffff',
-      'intensity': 0.5,
+      'intensity': 0.6,
       'position': {
         'x': 0,
         'y': 500,
@@ -75,8 +76,8 @@ const defaultPostConfig: PostConfig = {
       },
     },
     'ambient': {
-      'color': '0xffffff',
-      'intensity': 0.4,
+      'color': '0xffd700',
+      'intensity': 0.5,
       'position': {
         'x': 0,
         'y': 0,
