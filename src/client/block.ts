@@ -18,7 +18,7 @@ export class Block {
       metalness: 0.1,
     });
 
-    // Create a French fry shaped geometry - taller than wide
+    // Create a French fry shaped geometry - longer and thinner
     const geometry = new BoxGeometry(1, 1, 1);
     this.mesh = new Mesh(geometry, this.material);
 
@@ -27,8 +27,8 @@ export class Block {
       this.originalScale = scale.clone();
     }
 
-    // Rotate to make fries stand upright
-    this.mesh.rotation.set(0, 0, 0);
+    // Rotate for Jenga-style placement
+    this.mesh.rotation.set(0, Math.PI / 2, 0);
   }
 
   // prettier-ignore
@@ -73,7 +73,7 @@ export class Block {
     
     switch (effect.type) {
       case 'grow':
-        // Scale more in height for fry effect
+        // Scale more in length for fry effect
         this.scale.y *= (1 + effect.magnitude * 1.5);
         this.scale.x *= (1 + effect.magnitude * 0.5);
         this.scale.z *= (1 + effect.magnitude * 0.5);
@@ -96,11 +96,23 @@ export class Block {
       speed *= (1 - this.effect.magnitude);
     }
 
-    this.position.set(
-      this.position.x + this.direction.x * speed,
-      this.position.y + this.direction.y * speed,
-      this.position.z + this.direction.z * speed
-    );
+    // Jenga-style movement
+    const level = Math.floor(this.y / (this.height + 0.1));
+    const isAlternating = level % 2 === 0;
+
+    if (isAlternating) {
+      this.position.set(
+        this.position.x + this.direction.x * speed,
+        this.position.y,
+        this.position.z
+      );
+    } else {
+      this.position.set(
+        this.position.x,
+        this.position.y,
+        this.position.z + this.direction.z * speed
+      );
+    }
   }
 
   public cut(
@@ -114,7 +126,10 @@ export class Block {
     const position = this.position.clone();
     const scale = this.scale.clone();
 
-    if (Math.abs(this.direction.x) > Number.EPSILON) {
+    const level = Math.floor(this.y / (this.height + 0.1));
+    const isAlternating = level % 2 === 0;
+
+    if (isAlternating) {
       const overlap = targetBlock.width - Math.abs(this.x - targetBlock.x);
       if (overlap < 0) return { state: 'missed' };
 

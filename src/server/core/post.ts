@@ -9,9 +9,9 @@ const defaultPostConfig: PostConfig = {
     'base': {
       'color': '0xFFD700', // Golden color for fries
       'scale': {
-        'x': 1.5, // Thinner for fry shape
-        'y': 8, // Longer for fry shape
-        'z': 1.5, // Thinner for fry shape
+        'x': 6, // Width for Jenga-style fries
+        'y': 1.5, // Height for Jenga-style fries
+        'z': 2, // Depth for Jenga-style fries
       },
     },
     'colors': {
@@ -35,11 +35,11 @@ const defaultPostConfig: PostConfig = {
   'gameplay': {
     'distance': 8,
     'speed': {
-      'min': 8,
-      'max': 15,
-      'multiplier': 0.04,
+      'min': 6,
+      'max': 12,
+      'multiplier': 0.03,
     },
-    'accuracy': 0.4, // More forgiving for fries
+    'accuracy': 0.4,
     'effectProbability': 0.4,
   },
   'instructions': {
@@ -50,9 +50,9 @@ const defaultPostConfig: PostConfig = {
     'far': 1000,
     'viewSize': 30,
     'position': {
-      'x': 2,
-      'y': 2,
-      'z': 2,
+      'x': 15,
+      'y': 15,
+      'z': 15,
     },
     'lookAt': {
       'x': 0,
@@ -69,9 +69,9 @@ const defaultPostConfig: PostConfig = {
       'color': '0xFFFAF0',
       'intensity': 0.7,
       'position': {
-        'x': 0,
-        'y': 500,
-        'z': 0,
+        'x': 10,
+        'y': 20,
+        'z': 10,
       },
     },
     'ambient': {
