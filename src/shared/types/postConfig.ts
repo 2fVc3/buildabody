@@ -10,16 +10,15 @@ export type RGB = {
   b: number;
 };
 
-export type NoodleEffect = {
-  type: 'normal' | 'wiggly' | 'bouncy';
-  bounciness: number;
-  wiggleSpeed: number;
+export type BlockEffect = {
+  type: 'grow' | 'shrink' | 'speed' | 'slow' | 'rainbow' | 'none';
+  duration: number;
+  magnitude: number;
 };
 
 export type BlockBaseConfig = {
   color: string;
   scale: Vector3;
-  effect?: NoodleEffect;
 };
 
 export type BlockColorsConfig = {
@@ -43,8 +42,7 @@ export type GameplayConfig = {
   distance: number;
   speed: SpeedConfig;
   accuracy: number;
-  noodleBounciness: number;
-  wiggleSpeed: number;
+  effectProbability: number;
 };
 
 export type InstructionsConfig = {
