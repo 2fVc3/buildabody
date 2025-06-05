@@ -40,6 +40,7 @@ const defaultPostConfig: PostConfig = {
       'multiplier': 0.05,
     },
     'accuracy': 0.2,
+    'effectProbability': 0.3,
   },
   'instructions': {
     'height': 5,

@@ -1,18 +1,22 @@
 import { BoxGeometry, Euler, Mesh, MeshToonMaterial, Vector3 } from 'three';
+import { BlockEffect } from '../shared/types/postConfig';
 
 type CutState = 'missed' | 'perfect' | 'chopped';
 
 export class Block {
   public direction: Vector3 = new Vector3(0, 0, 0);
+  public effect: BlockEffect = { type: 'none', duration: 0, magnitude: 0 };
 
   private mesh: Mesh;
   private material: MeshToonMaterial;
+  private originalScale: Vector3;
 
   constructor(scale: Vector3 | undefined = undefined) {
     this.material = new MeshToonMaterial();
     this.mesh = new Mesh(new BoxGeometry(1, 1, 1), this.material);
     if (scale !== undefined) {
       this.mesh.scale.copy(scale);
+      this.originalScale = scale.clone();
     }
   }
 
@@ -53,11 +57,34 @@ export class Block {
     return this.mesh;
   }
 
+  public applyEffect(effect: BlockEffect): void {
+    this.effect = effect;
+    
+    switch (effect.type) {
+      case 'grow':
+        this.scale.multiplyScalar(1 + effect.magnitude);
+        break;
+      case 'shrink':
+        this.scale.multiplyScalar(1 - effect.magnitude);
+        break;
+      case 'rainbow':
+        this.material.color.setHSL(Math.random(), 0.8, 0.5);
+        break;
+    }
+  }
+
   public moveScalar(scalar: number): void {
+    let speed = scalar;
+    if (this.effect.type === 'speed') {
+      speed *= (1 + this.effect.magnitude);
+    } else if (this.effect.type === 'slow') {
+      speed *= (1 - this.effect.magnitude);
+    }
+
     this.position.set(
-      this.position.x + this.direction.x * scalar,
-      this.position.y + this.direction.y * scalar,
-      this.position.z + this.direction.z * scalar
+      this.position.x + this.direction.x * speed,
+      this.position.y + this.direction.y * speed,
+      this.position.z + this.direction.z * speed
     );
   }
 
@@ -84,7 +111,6 @@ export class Block {
       this.scale.x = overlap;
       this.x = (targetBlock.x + this.x) * 0.5;
 
-      // chopped
       scale.x -= overlap;
       position.x = this.x + (scale.x + this.width) * (this.x < targetBlock.x ? -0.5 : 0.5);
     } else {
@@ -99,7 +125,6 @@ export class Block {
       this.scale.z = overlap;
       this.z = (targetBlock.z + this.z) * 0.5;
 
-      // chopped
       scale.z -= overlap;
       position.z = this.z + (scale.z + this.depth) * (this.z < targetBlock.z ? -0.5 : 0.5);
     }
