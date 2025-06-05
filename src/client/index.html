@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <link rel="stylesheet" type="text/css" href="style.css" />
@@ -15,40 +15,20 @@
   </head>
   <body>
     <div id="container">
-      <!-- Main Menu -->
-      <div class="menu-screen" id="main-menu">
-        <h1 class="menu-title">Magical Tower Builder</h1>
-        <button class="menu-button" id="start-game">Start Game</button>
-        <button class="menu-button" id="how-to-play">How to Play</button>
-      </div>
-
-      <!-- Game Elements -->
       <div id="game"></div>
       <div id="score">0</div>
-      <div id="combo-meter">Perfect Stack! x<span id="combo-count">2</span></div>
-      
-      <!-- Power-ups -->
-      <div id="power-ups">
-        <div class="power-up" id="slow-time">⏰</div>
-        <div class="power-up" id="double-size">📏</div>
-        <div class="power-up" id="perfect-stack">✨</div>
-      </div>
-
-      <!-- Leaderboard -->
       <div id="leaderboard">
-        <div class="leaderboard-title">Top Builders</div>
+        <div class="leaderboard-title">Top</div>
         <div id="leaderboard-list"></div>
       </div>
-
-      <!-- Instructions -->
-      <div id="instructions" class="hide">Click or press spacebar to stack!</div>
-
-      <!-- Game Over Screen -->
+      <div id="instructions">Click (or press the spacebar) to place the block</div>
       <div class="game-over">
-        <h2>Tower Collapsed!</h2>
-        <p id="game-over-text">Click or spacebar to build again</p>
-        <button class="menu-button" id="retry">Try Again</button>
-        <button class="menu-button" id="main-menu-button">Main Menu</button>
+        <h2>Game Over</h2>
+        <p id="game-over-text">Click or spacebar to start again</p>
+      </div>
+      <div class="game-ready">
+        <div id="start-button">Start</div>
+        <div></div>
       </div>
     </div>
     <script type="module" src="main.ts"></script>
