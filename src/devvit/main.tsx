@@ -6,17 +6,10 @@ import { defineConfig } from '@devvit/server';
 import { postConfigNew } from '../server/core/post';
 
 defineConfig({
-  name: 'TowerBlocks',
+  name: 'French Fry Stacker',
   entry: 'index.html',
   height: 'tall',
   menu: { enable: false },
-  // TODO: Cannot use without ability to pass in post metadata
-  // menu: {
-  //   enable: true,
-  //   label: 'New TowerBlocks Post',
-  //   postTitle: 'TowerBlocks',
-  //   preview: <Preview />,
-  // },
 });
 
 export const Preview: Devvit.BlockComponent<{ text?: string }> = ({ text = 'Loading...' }) => {
@@ -40,39 +33,37 @@ export const Preview: Devvit.BlockComponent<{ text?: string }> = ({ text = 'Load
   );
 };
 
-// TODO: Remove this when defineConfig allows webhooks before post creation
 Devvit.addMenuItem({
-  // Please update as you work on your idea!
-  label: 'TowerBlocks: New Post',
+  label: 'French Fry Stacker: New Game',
   location: 'subreddit',
   forUserType: 'moderator',
-  onPress: async (_event, context) => {
+  async onPress(event, context) {
     const { reddit, ui } = context;
 
-    let post: Post | undefined;
     try {
       const subreddit = await reddit.getCurrentSubreddit();
-      post = await reddit.submitPost({
-        // Title of the post. You'll want to update!
-        title: 'TowerBlocks',
+      const post = await reddit.submitPost({
+        title: 'French Fry Stacker',
         subredditName: subreddit.name,
         preview: <Preview />,
       });
+
+      if (!post) {
+        throw new Error('Failed to create post');
+      }
+
       await postConfigNew({
         ctx: context,
         postId: post.id,
       });
-      ui.showToast({ text: 'Created post!' });
-      ui.navigateTo(post.url);
+
+      ui.showToast({ text: 'Created game!' });
+      await ui.navigateTo(post.url);
     } catch (error) {
-      if (post) {
-        await post.remove(false);
-      }
-      if (error instanceof Error) {
-        ui.showToast({ text: `Error creating post: ${error.message}` });
-      } else {
-        ui.showToast({ text: 'Error creating post!' });
-      }
+      ui.showToast({ 
+        text: `Error creating game: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'error'
+      });
     }
   },
 });
