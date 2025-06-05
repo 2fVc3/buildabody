@@ -8,33 +8,52 @@ function onResize(): void {
 
 async function onTouchStart(event: TouchEvent): Promise<void> {
   event.preventDefault();
-  await game.action();
+  await game.onMouseDown();
+}
+
+async function onTouchEnd(event: TouchEvent): Promise<void> {
+  event.preventDefault();
+  await game.onMouseUp();
 }
 
 async function onMouseDown(event: MouseEvent): Promise<void> {
   event.preventDefault();
   window.focus();
-  await game.action();
+  await game.onMouseDown();
+}
+
+async function onMouseUp(event: MouseEvent): Promise<void> {
+  event.preventDefault();
+  await game.onMouseUp();
 }
 
 async function onKeyDown(event: KeyboardEvent): Promise<void> {
   if (event.code === 'Space') {
     event.preventDefault();
-    await game.action();
+    await game.onMouseDown();
+  }
+}
+
+async function onKeyUp(event: KeyboardEvent): Promise<void> {
+  if (event.code === 'Space') {
+    event.preventDefault();
+    await game.onMouseUp();
   }
 }
 
 async function onLoad(): Promise<void> {
   await game.prepare(window.innerWidth, window.innerHeight, window.devicePixelRatio);
-
   await game.start();
 
   window.addEventListener('resize', onResize, false);
   window.addEventListener('orientationchange', onResize, false);
   window.addEventListener('touchstart', onTouchStart, { passive: false });
+  window.addEventListener('touchend', onTouchEnd, { passive: false });
   window.addEventListener('mousedown', onMouseDown, false);
+  window.addEventListener('mouseup', onMouseUp, false);
   window.focus();
   window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
 }
 
 window.addEventListener('load', onLoad, false);

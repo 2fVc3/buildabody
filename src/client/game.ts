@@ -1,6 +1,6 @@
 import { Easing, Tween, update as tweenjsUpdate } from '@tweenjs/tween.js';
 import Stats from 'three/examples/jsm/libs/stats.module';
-import { Vector3, CylinderGeometry, Mesh, MeshStandardMaterial } from 'three';
+import { Vector3, CylinderGeometry, Mesh, MeshStandardMaterial, BoxGeometry } from 'three';
 import * as CANNON from 'cannon-es';
 import { Block } from './block';
 import { Stage } from './stage';
@@ -26,9 +26,18 @@ export class Game {
   private stage!: Stage;
   private fry!: Block;
   private friesBag!: Mesh;
+  private floor!: Mesh;
   
   private world!: CANNON.World;
   private fryBody!: CANNON.Body;
+  private bagBody!: CANNON.Body;
+  private floorBody!: CANNON.Body;
+
+  private score: number = 0;
+  private flipPower: number = 0;
+  private isCharging: boolean = false;
+  private maxFlipPower: number = 15;
+  private chargeRate: number = 0.5;
 
   private stats!: Stats;
   private config!: PostConfig;
@@ -49,7 +58,6 @@ export class Game {
         throw new Error('Invalid init data received');
       }
       const initData = data as InitMessage;
-      console.log('Received init data:', initData);
 
       this.devvit = new Devvit({
         userId: initData.user.id,
@@ -62,6 +70,7 @@ export class Game {
       this.updateLeaderboard(initData.leaderboard);
       this.setupPhysicsWorld();
       this.setupStage(width, height, devicePixelRatio);
+      this.createFloor();
       this.createFriesBag();
       this.createFry();
 
@@ -74,11 +83,16 @@ export class Game {
         tweenjsUpdate(currentTime);
         this.world.step(1/60);
         this.updatePhysics();
+        this.checkCollisions();
+        if (this.isCharging && this.flipPower < this.maxFlipPower) {
+          this.flipPower += this.chargeRate;
+        }
         this.render();
         this.stats?.update();
       });
 
       this.updateState('ready');
+      this.instructions.innerHTML = "Hold to charge, release to flip!";
     } catch (error) {
       console.error('Failed to initialize game:', error);
       const container = document.getElementById('container');
@@ -106,43 +120,79 @@ export class Game {
   private setupStage(width: number, height: number, devicePixelRatio: number): void {
     this.stage = new Stage(this.config, devicePixelRatio);
     this.stage.resize(width, height);
+    // Adjust camera for better gameplay view
+    this.stage.setCustomCamera(15, 10, 15);
+  }
+
+  private createFloor(): void {
+    const geometry = new BoxGeometry(20, 0.1, 20);
+    const material = new MeshStandardMaterial({ color: 0xcccccc });
+    this.floor = new Mesh(geometry, material);
+    this.floor.position.set(0, -0.05, 0);
+    this.stage.add(this.floor);
+
+    this.floorBody = new CANNON.Body({
+      mass: 0,
+      shape: new CANNON.Box(new CANNON.Vec3(10, 0.05, 10)),
+      position: new CANNON.Vec3(0, -0.05, 0)
+    });
+    this.world.addBody(this.floorBody);
   }
 
   private createFriesBag(): void {
     const geometry = new CylinderGeometry(2, 1.5, 4, 32);
     const material = new MeshStandardMaterial({ color: 0xFFFFFF });
     this.friesBag = new Mesh(geometry, material);
-    this.friesBag.position.set(0, 0, 0);
+    this.friesBag.position.set(5, 2, 5);
     this.stage.add(this.friesBag);
 
-    // Add physics for the bag
-    const bagShape = new CANNON.Cylinder(2, 1.5, 4, 32);
-    const bagBody = new CANNON.Body({
+    this.bagBody = new CANNON.Body({
       mass: 0,
-      shape: bagShape,
-      position: new CANNON.Vec3(0, 0, 0)
+      shape: new CANNON.Cylinder(2, 1.5, 4, 32),
+      position: new CANNON.Vec3(5, 2, 5)
     });
-    this.world.addBody(bagBody);
+    this.world.addBody(this.bagBody);
   }
 
   private createFry(): void {
-    this.fry = new Block(new Vector3(1.5, 8, 1.5));
+    // Random starting position on the floor
+    const startX = Math.random() * 10 - 5;
+    const startZ = Math.random() * 10 - 5;
+    
+    this.fry = new Block(new Vector3(0.3, 2, 0.3));
+    this.fry.position.set(startX, 1, startZ);
     this.stage.add(this.fry.getMesh());
 
-    // Add physics for the fry
-    const fryShape = new CANNON.Box(new CANNON.Vec3(0.75, 4, 0.75));
+    if (this.fryBody) {
+      this.world.removeBody(this.fryBody);
+    }
+
     this.fryBody = new CANNON.Body({
       mass: 1,
-      shape: fryShape,
-      position: new CANNON.Vec3(0, 10, 0)
+      shape: new CANNON.Box(new CANNON.Vec3(0.15, 1, 0.15)),
+      position: new CANNON.Vec3(startX, 1, startZ)
     });
     this.world.addBody(this.fryBody);
   }
 
+  private checkCollisions(): void {
+    if (!this.fryBody || !this.bagBody) return;
+
+    const distance = this.fryBody.position.distanceTo(this.bagBody.position);
+    const heightDiff = this.fryBody.position.y - this.bagBody.position.y;
+
+    // Check if fry is above bag and within radius
+    if (distance < 2 && heightDiff > 0 && heightDiff < 4) {
+      this.score += 1;
+      this.scoreContainer.innerHTML = this.score.toString();
+      this.createFry(); // Spawn new fry
+    }
+  }
+
   private updatePhysics(): void {
     if (this.fry && this.fryBody) {
-      this.fry.getMesh().position.copy(this.fryBody.position as any);
-      this.fry.getMesh().quaternion.copy(this.fryBody.quaternion as any);
+      this.fry.position.copy(this.fryBody.position as any);
+      this.fry.quaternion.copy(this.fryBody.quaternion as any);
     }
   }
 
@@ -168,10 +218,22 @@ export class Game {
     this.mainContainer.classList.add(this.state);
   }
 
-  public async action(): Promise<void> {
+  public async onMouseDown(): Promise<void> {
     if (this.state === 'playing') {
+      this.isCharging = true;
+      this.flipPower = 0;
+    }
+  }
+
+  public async onMouseUp(): Promise<void> {
+    if (this.state === 'playing' && this.isCharging) {
+      this.isCharging = false;
       this.flipFry();
-    } else if (this.state === 'ready') {
+    }
+  }
+
+  public async action(): Promise<void> {
+    if (this.state === 'ready') {
       this.startGame();
     } else if (this.state === 'ended') {
       this.restartGame();
@@ -179,18 +241,36 @@ export class Game {
   }
 
   private flipFry(): void {
-    const force = new CANNON.Vec3(0, 10, -5);
-    const point = new CANNON.Vec3(0, 0, 0);
-    this.fryBody.applyForce(force, point);
+    const upForce = this.flipPower * 2;
+    const horizontalForce = this.flipPower;
+    
+    // Calculate direction towards the bag
+    const direction = new CANNON.Vec3();
+    direction.copy(this.bagBody.position as any);
+    direction.vsub(this.fryBody.position, direction);
+    direction.normalize();
+    
+    const force = new CANNON.Vec3(
+      direction.x * horizontalForce,
+      upForce,
+      direction.z * horizontalForce
+    );
+    
+    this.fryBody.applyImpulse(force, this.fryBody.position);
+    this.flipPower = 0;
   }
 
   private startGame(): void {
+    this.score = 0;
+    this.scoreContainer.innerHTML = '0';
     this.updateState('playing');
   }
 
   private async restartGame(): Promise<void> {
-    this.updateState('ready');
+    this.score = 0;
+    this.scoreContainer.innerHTML = '0';
     this.createFry();
+    this.updateState('playing');
   }
 
   private updateLeaderboard(

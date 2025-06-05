@@ -6,6 +6,7 @@ import {
   OrthographicCamera,
   Scene,
   WebGLRenderer,
+  Vector3
 } from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
 
@@ -51,6 +52,11 @@ export class Stage {
     this.scene.remove(object);
   }
 
+  public setCustomCamera(x: number, y: number, z: number): void {
+    this.camera.position.set(x, y, z);
+    this.camera.lookAt(new Vector3(0, 0, 0));
+  }
+
   private setupRenderer(devicePixelRatio: number): void {
     this.renderer = new WebGLRenderer({
       antialias: true,
@@ -88,14 +94,6 @@ export class Stage {
   public setCamera(y: number): void {
     new Tween(this.camera.position)
       .to({ y: y + this.config.camera.offset }, 300)
-      .easing(Easing.Cubic.Out)
-      .start();
-  }
-
-  public resetCamera(duration: number): void {
-    const { position, offset } = this.config.camera;
-    new Tween(this.camera.position)
-      .to({ y: position.y + offset }, duration)
       .easing(Easing.Cubic.Out)
       .start();
   }
