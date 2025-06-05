@@ -41,19 +41,9 @@ async function onKeyUp(event: KeyboardEvent): Promise<void> {
   }
 }
 
-async function onStartClick(): Promise<void> {
-  await game.action();
-}
-
 async function onLoad(): Promise<void> {
   await game.prepare(window.innerWidth, window.innerHeight, window.devicePixelRatio);
   await game.start();
-
-  // Add start button click handler
-  const startButton = document.getElementById('start-button');
-  if (startButton) {
-    startButton.addEventListener('click', onStartClick);
-  }
 
   window.addEventListener('resize', onResize, false);
   window.addEventListener('orientationchange', onResize, false);
