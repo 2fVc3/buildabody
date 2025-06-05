@@ -7,40 +7,40 @@ const getPostConfigKey = (postId: string) => `post_config:${postId}` as const;
 const defaultPostConfig: PostConfig = {
   'block': {
     'base': {
-      'color': '0x333344',
+      'color': '0xFFD700', // Golden color for fries
       'scale': {
-        'x': 10,
-        'y': 2,
-        'z': 10,
+        'x': 1.5, // Thinner for fry shape
+        'y': 8, // Longer for fry shape
+        'z': 1.5, // Thinner for fry shape
       },
     },
     'colors': {
       'base': {
-        'r': 200,
-        'g': 200,
-        'b': 200,
+        'r': 255,
+        'g': 215,
+        'b': 0,
       },
       'range': {
-        'r': 55,
-        'g': 55,
-        'b': 55,
+        'r': 20,
+        'g': 30,
+        'b': 0,
       },
       'intensity': {
-        'r': 0.3,
-        'g': 0.34,
-        'b': 0.38,
+        'r': 0.2,
+        'g': 0.3,
+        'b': 0.1,
       },
     },
   },
   'gameplay': {
-    'distance': 12,
+    'distance': 8,
     'speed': {
-      'min': 10,
-      'max': 18,
-      'multiplier': 0.05,
+      'min': 8,
+      'max': 15,
+      'multiplier': 0.04,
     },
-    'accuracy': 0.2,
-    'effectProbability': 0.3,
+    'accuracy': 0.4, // More forgiving for fries
+    'effectProbability': 0.4,
   },
   'instructions': {
     'height': 5,
@@ -59,15 +59,15 @@ const defaultPostConfig: PostConfig = {
       'y': 0,
       'z': 0,
     },
-    'offset': 6,
+    'offset': 12,
   },
   'background': {
-    'color': '0xd0cbc7',
+    'color': '0xF5D6BA', // Warm paper bag color
   },
   'light': {
     'directional': {
-      'color': '0xffffff',
-      'intensity': 0.5,
+      'color': '0xFFFAF0',
+      'intensity': 0.7,
       'position': {
         'x': 0,
         'y': 500,
@@ -75,8 +75,8 @@ const defaultPostConfig: PostConfig = {
       },
     },
     'ambient': {
-      'color': '0xffffff',
-      'intensity': 0.4,
+      'color': '0xFFFAF0',
+      'intensity': 0.5,
       'position': {
         'x': 0,
         'y': 0,

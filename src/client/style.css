@@ -13,6 +13,7 @@ body {
 #container {
   width: 100%;
   height: 100%;
+  background: linear-gradient(45deg, #F5D6BA, #FFE4C4);
 }
 
 #score {
@@ -22,7 +23,8 @@ body {
   text-align: center;
   font-size: 8vh;
   transition: transform 0.5s ease;
-  color: #333344;
+  color: #8B4513;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
   transform: translatey(-200px) scale(1);
 }
 
@@ -58,7 +60,7 @@ body {
     transform 0.5s ease;
   opacity: 0;
   transform: translatey(-100px);
-  color: #333344;
+  color: #8B4513;
 }
 
 .game-over h2 {
@@ -85,12 +87,13 @@ body {
     transform 0.5s ease;
   opacity: 0;
   transform: translatey(-50px);
-
-  border: 3px solid #333344;
+  border: 3px solid #8B4513;
   padding: 10px 20px;
-  background-color: transparent;
-  color: #333344;
+  background-color: rgba(255, 215, 0, 0.2);
+  color: #8B4513;
   font-size: 30px;
+  border-radius: 15px;
+  cursor: pointer;
 }
 
 #instructions {
@@ -103,6 +106,8 @@ body {
     opacity 0.5s ease,
     transform 0.5s ease;
   opacity: 0;
+  color: #8B4513;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 #instructions.hide {
@@ -143,19 +148,21 @@ body {
   transform: translateX(-50%);
   right: 10px;
   width: 90%;
-  background-color: #fff;
-  border: solid 3px #333344;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: solid 3px #8B4513;
   padding: 8px 10px;
   display: flex;
   align-items: center;
   gap: 10px;
   z-index: 100;
+  border-radius: 10px;
 }
 
 .leaderboard-title {
   font-size: 10px;
   font-weight: bold;
   flex-shrink: 0;
+  color: #8B4513;
 }
 
 #leaderboard-list {
@@ -178,8 +185,10 @@ body {
   gap: 5px;
   flex-shrink: 0;
   font-size: 8px;
-  background-color: #d0cbc7;
+  background-color: rgba(255, 215, 0, 0.2);
   padding: 2px 3px;
+  border-radius: 5px;
+  color: #8B4513;
 }
 
 #leaderboard-list img {

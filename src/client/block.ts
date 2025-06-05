@@ -12,12 +12,19 @@ export class Block {
   private originalScale: Vector3;
 
   constructor(scale: Vector3 | undefined = undefined) {
-    this.material = new MeshToonMaterial();
+    this.material = new MeshToonMaterial({
+      roughness: 0.7,
+      metalness: 0.3,
+    });
+    // Create a french fry shaped geometry
     this.mesh = new Mesh(new BoxGeometry(1, 1, 1), this.material);
     if (scale !== undefined) {
       this.mesh.scale.copy(scale);
       this.originalScale = scale.clone();
     }
+    
+    // Rotate the fry to stand upright
+    this.mesh.rotation.set(0, 0, Math.PI / 2);
   }
 
   // prettier-ignore
@@ -68,7 +75,8 @@ export class Block {
         this.scale.multiplyScalar(1 - effect.magnitude);
         break;
       case 'rainbow':
-        this.material.color.setHSL(Math.random(), 0.8, 0.5);
+        // Make it look like it's being salted
+        this.material.color.setHSL(0.1, 0.8, 0.7);
         break;
     }
   }
@@ -76,9 +84,9 @@ export class Block {
   public moveScalar(scalar: number): void {
     let speed = scalar;
     if (this.effect.type === 'speed') {
-      speed *= (1 + this.effect.magnitude);
+      speed *= (1 + effect.magnitude);
     } else if (this.effect.type === 'slow') {
-      speed *= (1 - this.effect.magnitude);
+      speed *= (1 - effect.magnitude);
     }
 
     this.position.set(
