@@ -1,112 +1,101 @@
-import { BoxGeometry, Euler, Mesh, MeshToonMaterial, Vector3, CylinderGeometry } from 'three';
-import { NoodleEffect } from '../shared/types/postConfig';
-import { Tween, Easing } from '@tweenjs/tween.js';
+import { BoxGeometry, Euler, Mesh, MeshToonMaterial, Vector3 } from 'three';
+import { BlockEffect } from '../shared/types/postConfig';
 
 type CutState = 'missed' | 'perfect' | 'chopped';
 
 export class Block {
   public direction: Vector3 = new Vector3(0, 0, 0);
-  public effect: NoodleEffect = { type: 'normal', bounciness: 0.5, wiggleSpeed: 1 };
+  public effect: BlockEffect = { type: 'none', duration: 0, magnitude: 0 };
 
   private mesh: Mesh;
   private material: MeshToonMaterial;
-  private originalPosition: Vector3;
-  private wigglePhase: number = 0;
-  private wiggleAmplitude: number = 0.2;
-  private bounceTween?: Tween<Vector3>;
+  private originalScale: Vector3;
 
   constructor(scale: Vector3 | undefined = undefined) {
-    this.material = new MeshToonMaterial({
-      transparent: true,
-      opacity: 0.9,
-    });
-    
-    // Create a cylinder (noodle) instead of a box
-    const geometry = new CylinderGeometry(0.5, 0.5, 1, 32);
-    geometry.rotateZ(Math.PI / 2); // Lay the cylinder horizontally
-    
-    this.mesh = new Mesh(geometry, this.material);
+    this.material = new MeshToonMaterial();
+    this.mesh = new Mesh(new BoxGeometry(1, 1, 1), this.material);
     if (scale !== undefined) {
       this.mesh.scale.copy(scale);
+      this.originalScale = scale.clone();
     }
-    
-    this.originalPosition = this.mesh.position.clone();
-    this.startWiggle();
   }
 
-  private startWiggle() {
-    const animate = () => {
-      if (this.effect.type === 'wiggly') {
-        this.wigglePhase += this.effect.wiggleSpeed * 0.05;
-        const wiggleOffset = Math.sin(this.wigglePhase) * this.wiggleAmplitude;
-        this.mesh.position.y = this.originalPosition.y + wiggleOffset;
-        this.mesh.rotation.z = Math.sin(this.wigglePhase * 0.5) * 0.1;
-      }
-      requestAnimationFrame(animate);
-    };
-    animate();
-  }
-
-  public bounce() {
-    if (this.bounceTween) {
-      this.bounceTween.stop();
-    }
-
-    const startY = this.mesh.position.y;
-    const bounceHeight = 0.5 * this.effect.bounciness;
-
-    this.bounceTween = new Tween(this.mesh.position)
-      .to({ y: startY + bounceHeight }, 300)
-      .easing(Easing.Quadratic.Out)
-      .yoyo(true)
-      .repeat(1)
-      .start();
-  }
-
+  // prettier-ignore
   public get position(): Vector3 { return this.mesh.position; }
+  // prettier-ignore
   public get rotation(): Euler { return this.mesh.rotation; }
+  // prettier-ignore
   public get scale(): Vector3 { return this.mesh.scale; }
 
+  // prettier-ignore
   public get x(): number { return this.mesh.position.x; }
+  // prettier-ignore
   public get y(): number { return this.mesh.position.y; }
+  // prettier-ignore
   public get z(): number { return this.mesh.position.z; }
 
+  // prettier-ignore
   public set x(value: number) { this.mesh.position.x = value; }
+  // prettier-ignore
   public set y(value: number) { this.mesh.position.y = value; }
+  // prettier-ignore
   public set z(value: number) { this.mesh.position.z = value; }
 
+  // prettier-ignore
   public get width(): number { return this.scale.x; }
+  // prettier-ignore
   public get height(): number { return this.scale.y; }
+  // prettier-ignore
   public get depth(): number { return this.scale.z; }
 
+  // prettier-ignore
   public get color(): number { return this.material.color.getHex(); }
-  public set color(value: number) { 
-    this.material.color.set(value);
-    // Add some shininess to make it look more noodle-like
-    this.material.shininess = 50;
-  }
+  // prettier-ignore
+  public set color(value: number) { this.material.color.set(value); }
 
   public getMesh(): Mesh {
     return this.mesh;
   }
 
-  public applyEffect(effect: NoodleEffect): void {
+  public applyEffect(effect: BlockEffect): void {
     this.effect = effect;
-    this.wiggleAmplitude = effect.type === 'wiggly' ? 0.3 : 0.1;
-    this.bounce();
+    
+    switch (effect.type) {
+      case 'grow':
+        this.scale.multiplyScalar(1 + effect.magnitude);
+        break;
+      case 'shrink':
+        this.scale.multiplyScalar(1 - effect.magnitude);
+        break;
+      case 'rainbow':
+        this.material.color.setHSL(Math.random(), 0.8, 0.5);
+        break;
+    }
   }
 
   public moveScalar(scalar: number): void {
-    const wiggleOffset = Math.sin(this.wigglePhase) * 0.1;
-    
+    let speed = scalar;
+    if (this.effect.type === 'speed') {
+      speed *= (1 + this.effect.magnitude);
+    } else if (this.effect.type === 'slow') {
+      speed *= (1 - this.effect.magnitude);
+    }
+
     this.position.set(
-      this.position.x + this.direction.x * scalar + (Math.sin(this.wigglePhase * 0.5) * 0.05),
-      this.position.y + this.direction.y * scalar + wiggleOffset,
-      this.position.z + this.direction.z * scalar
+      this.position.x + this.direction.x * speed,
+      this.position.y + this.direction.y * speed,
+      this.position.z + this.direction.z * speed
     );
   }
 
-  public cut(targetBlock: Block, accuracy: number): { state: CutState; position?: Vector3; scale?: Vector3; } {
+  public cut(
+    targetBlock: Block,
+    accuracy: number
+  ): {
+    state: CutState;
+    position?: Vector3;
+    scale?: Vector3;
+  } {
     const position = this.position.clone();
     const scale = this.scale.clone();
 
