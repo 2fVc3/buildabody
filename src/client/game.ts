@@ -70,9 +70,7 @@ export class Game {
       this.updateLeaderboard(initData.leaderboard);
       this.setupPhysicsWorld();
       this.setupStage(width, height, devicePixelRatio);
-      this.createFloor();
-      this.createFriesBag();
-      this.createFry();
+      this.createGameElements();
 
       if (getEnv().MODE === 'development') {
         this.stats = Stats();
@@ -92,7 +90,7 @@ export class Game {
       });
 
       this.updateState('ready');
-      this.instructions.innerHTML = "Hold to charge, release to flip!";
+      this.instructions.innerHTML = "Click Start to begin!";
     } catch (error) {
       console.error('Failed to initialize game:', error);
       const container = document.getElementById('container');
@@ -120,8 +118,13 @@ export class Game {
   private setupStage(width: number, height: number, devicePixelRatio: number): void {
     this.stage = new Stage(this.config, devicePixelRatio);
     this.stage.resize(width, height);
-    // Adjust camera for better gameplay view
     this.stage.setCustomCamera(15, 10, 15);
+  }
+
+  private createGameElements(): void {
+    this.createFloor();
+    this.createFriesBag();
+    this.createFry();
   }
 
   private createFloor(): void {
@@ -141,7 +144,11 @@ export class Game {
 
   private createFriesBag(): void {
     const geometry = new CylinderGeometry(2, 1.5, 4, 32);
-    const material = new MeshStandardMaterial({ color: 0xFFFFFF });
+    const material = new MeshStandardMaterial({ 
+      color: 0xFFFFFF,
+      roughness: 0.8,
+      metalness: 0.1
+    });
     this.friesBag = new Mesh(geometry, material);
     this.friesBag.position.set(5, 2, 5);
     this.stage.add(this.friesBag);
@@ -155,7 +162,6 @@ export class Game {
   }
 
   private createFry(): void {
-    // Random starting position on the floor
     const startX = Math.random() * 10 - 5;
     const startZ = Math.random() * 10 - 5;
     
@@ -181,11 +187,10 @@ export class Game {
     const distance = this.fryBody.position.distanceTo(this.bagBody.position);
     const heightDiff = this.fryBody.position.y - this.bagBody.position.y;
 
-    // Check if fry is above bag and within radius
     if (distance < 2 && heightDiff > 0 && heightDiff < 4) {
       this.score += 1;
       this.scoreContainer.innerHTML = this.score.toString();
-      this.createFry(); // Spawn new fry
+      this.createFry();
     }
   }
 
@@ -233,10 +238,13 @@ export class Game {
   }
 
   public async action(): Promise<void> {
-    if (this.state === 'ready') {
-      this.startGame();
-    } else if (this.state === 'ended') {
-      this.restartGame();
+    switch (this.state) {
+      case 'ready':
+        await this.startGame();
+        break;
+      case 'ended':
+        await this.restartGame();
+        break;
     }
   }
 
@@ -244,7 +252,6 @@ export class Game {
     const upForce = this.flipPower * 2;
     const horizontalForce = this.flipPower;
     
-    // Calculate direction towards the bag
     const direction = new CANNON.Vec3();
     direction.copy(this.bagBody.position as any);
     direction.vsub(this.fryBody.position, direction);
@@ -264,6 +271,8 @@ export class Game {
     this.score = 0;
     this.scoreContainer.innerHTML = '0';
     this.updateState('playing');
+    this.instructions.innerHTML = "Hold to charge, release to flip!";
+    this.instructions.classList.remove('hide');
   }
 
   private async restartGame(): Promise<void> {
@@ -271,6 +280,8 @@ export class Game {
     this.scoreContainer.innerHTML = '0';
     this.createFry();
     this.updateState('playing');
+    this.instructions.innerHTML = "Hold to charge, release to flip!";
+    this.instructions.classList.remove('hide');
   }
 
   private updateLeaderboard(
