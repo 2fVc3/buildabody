@@ -149,7 +149,7 @@ export class Game {
       this.showQuote(event.detail.quote);
     });
 
-    // Menu navigation - FIXED: Proper event handling
+    // Menu navigation
     this.leaderboardButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -262,8 +262,6 @@ export class Game {
   private update(deltaTime: number): void {
     if (this.state === 'aiming' && this.isCharging) {
       this.updatePowerMeter();
-    } else if (this.state === 'flying') {
-      this.updateFrogFlight(deltaTime);
     }
   }
 
@@ -283,23 +281,6 @@ export class Game {
     }
 
     this.powerMeter.style.width = `${this.power}%`;
-  }
-
-  private updateFrogFlight(deltaTime: number): void {
-    if (!this.currentFrog) return;
-
-    const landed = this.currentFrog.update(
-      deltaTime,
-      this.config.launch.gravity,
-      this.config.launch.bounceDecay
-    );
-
-    if (landed) {
-      this.handleFrogLanding();
-    }
-
-    // Follow frog with camera
-    this.stage.followFrog(this.currentFrog.position);
   }
 
   private render(): void {
@@ -332,17 +313,9 @@ export class Game {
   }
 
   private spawnNewFrog(): void {
-    // Remove old frog
-    if (this.currentFrog) {
-      this.stage.remove(this.currentFrog.getMesh());
-    }
-
     // Create new frog with random personality
     const personality = FROG_PERSONALITIES[Math.floor(Math.random() * FROG_PERSONALITIES.length)]!;
     this.currentFrog = new Frog(personality);
-    
-    // Position at launch pad
-    this.currentFrog.position.set(0, 0.5, 0);
     
     // Apply random effect
     const effect = this.getRandomEffect();
@@ -350,21 +323,18 @@ export class Game {
       this.currentFrog.applyEffect(effect);
     }
 
-    this.stage.add(this.currentFrog.getMesh());
-    this.stage.resetCamera();
-    
     this.updatePersonalityDisplay();
     
     // Show spawn quote with personality-specific insults
     const spawnQuotes = {
-      dramatic: "🎭 A DRAMATIC frog appears! Prepare for theatrical criticism!",
-      zen: "🧘 A ZEN frog appears... already disappointed in your energy...",
-      chaotic: "🤪 A CHAOTIC frog appears! Ready for maximum mayhem!",
-      sleepy: "😴 A SLEEPY frog appears... *yawn* this better be good...",
-      confident: "💪 A CONFIDENT frog appears! Knows you'll mess this up!",
-      anxious: "😰 An ANXIOUS frog appears! Already worried about your aim!",
-      philosophical: "🤔 A PHILOSOPHICAL frog appears... questioning your existence...",
-      rebellious: "😤 A REBELLIOUS frog appears! Won't follow your rules!"
+      dramatic: "🎭 A DRAMATIC frog appears on the airplane! Prepare for theatrical criticism!",
+      zen: "🧘 A ZEN frog boards the plane... already disappointed in your piloting...",
+      chaotic: "🤪 A CHAOTIC frog jumps aboard! Ready for maximum mayhem!",
+      sleepy: "😴 A SLEEPY frog climbs in... *yawn* this better be good...",
+      confident: "💪 A CONFIDENT frog takes position! Knows you'll mess this up!",
+      anxious: "😰 An ANXIOUS frog nervously enters! Already worried about your flying!",
+      philosophical: "🤔 A PHILOSOPHICAL frog contemplates... questioning your existence...",
+      rebellious: "😤 A REBELLIOUS frog boards defiantly! Won't follow your flight plan!"
     };
     
     this.showQuote(spawnQuotes[personality]);
@@ -383,7 +353,7 @@ export class Game {
       rebellious: '😤'
     };
     
-    this.personalityDisplay.innerHTML = `${emojis[personality]} ${personality.toUpperCase()} FROG`;
+    this.personalityDisplay.innerHTML = `${emojis[personality]} ${personality.toUpperCase()} FROG ABOARD`;
   }
 
   private startPowerMeter(): void {
@@ -393,7 +363,7 @@ export class Game {
     this.power = 0;
     this.powerIncreasing = true;
     
-    console.log('Started charging power meter');
+    console.log('Started charging power meter for airplane launch');
   }
 
   private launch(): void {
@@ -405,9 +375,10 @@ export class Game {
     const launchPower = Math.max(10, this.power); // Minimum 10% power
     this.angle = (Math.random() - 0.5) * Math.PI * 0.3; // Random angle
     
-    console.log(`Launching frog with power: ${launchPower}%`);
+    console.log(`🛩️ Launching frog from airplane with power: ${launchPower}%`);
     
-    this.currentFrog.launch(launchPower, this.angle);
+    // Launch the frog from the airplane!
+    this.stage.launchFrogFromPlane(this.currentFrog, launchPower, this.angle);
     this.launchCount++;
     
     this.updateState('flying');
@@ -415,6 +386,11 @@ export class Game {
     // Reset power meter
     this.power = 0;
     this.powerMeter.style.width = '0%';
+
+    // Wait for frog to land, then continue
+    setTimeout(() => {
+      this.handleFrogLanding();
+    }, 5000); // Simulate flight time
   }
 
   private handleFrogLanding(): void {
@@ -422,12 +398,12 @@ export class Game {
     this.totalScore += frogScore;
     this.updateScore();
     
-    // Show score with sarcastic comment
+    // Show score with airplane-themed comment
     const scoreComments = [
-      `🎯 Landed! +${frogScore} points! (The frog is unimpressed)`,
-      `💰 Score: +${frogScore}! (Could've been better, says the frog)`,
-      `🏆 +${frogScore} points! (The frog thinks you got lucky)`,
-      `⭐ ${frogScore} points earned! (Frog: "I did all the work")`
+      `🛩️ Aerial delivery complete! +${frogScore} points! (The pilot is unimpressed)`,
+      `✈️ Frog deployed successfully! +${frogScore}! (Could've been smoother, says the frog)`,
+      `🎯 Air drop successful! +${frogScore} points! (The frog thinks you got lucky)`,
+      `🚁 Mission accomplished! ${frogScore} points earned! (Frog: "I did all the flying")`
     ];
     
     const comment = scoreComments[Math.floor(Math.random() * scoreComments.length)]!;
@@ -447,7 +423,7 @@ export class Game {
         this.updateState('aiming');
         this.spawnNewFrog();
       }
-    }, 3000); // Longer delay to see landing quotes
+    }, 3000);
   }
 
   private showAchievement(): void {
@@ -461,9 +437,9 @@ export class Game {
     const data = await this.devvit.gameOver(this.totalScore);
     
     if (this.userAllTimeStats && this.totalScore > this.userAllTimeStats.score) {
-      this.gameOverText.innerHTML = `🏆 NEW RECORD! 🏆<br/>You launched ${this.launchCount} frogs for ${this.totalScore} points!<br/>🐸 The frogs are... slightly less disappointed! 🐸`;
+      this.gameOverText.innerHTML = `🏆 NEW FLIGHT RECORD! 🏆<br/>You launched ${this.launchCount} frogs from the airplane for ${this.totalScore} points!<br/>🛩️ The frogs are... slightly less disappointed in your piloting! 🐸`;
     } else {
-      this.gameOverText.innerHTML = `🎪 FROG LAUNCHING COMPLETE! 🎪<br/>You launched ${this.launchCount} frogs for ${this.totalScore} points!<br/>🐸 The frogs have filed their complaints! 🐸`;
+      this.gameOverText.innerHTML = `🎪 AERIAL FROG MISSION COMPLETE! 🎪<br/>You launched ${this.launchCount} frogs from the airplane for ${this.totalScore} points!<br/>🛩️ The frogs have filed their flight complaints! 🐸`;
     }
     
     this.userAllTimeStats = data.userAllTimeStats;
@@ -475,7 +451,7 @@ export class Game {
     // Epic frog farewell animation
     if (this.currentFrog) {
       // Final sarcastic goodbye
-      this.showQuote("🐸 Finally! I'm escaping this amateur hour!");
+      this.showQuote("🐸 Finally! I'm parachuting away from this amateur pilot!");
       
       new Tween(this.currentFrog.position)
         .to({ y: 20 }, 1000)
@@ -514,14 +490,14 @@ export class Game {
   }
 
   private showQuote(quote: string): void {
-    console.log('Showing quote:', quote); // Debug logging
+    console.log('Showing quote:', quote);
     
     this.quoteDisplay.innerHTML = quote;
     this.quoteDisplay.classList.add('show');
     
     setTimeout(() => {
       this.quoteDisplay.classList.remove('show');
-    }, 4000); // Longer display time for better readability
+    }, 4000);
   }
 
   private updateLeaderboard(
@@ -530,7 +506,7 @@ export class Game {
       score: number;
     }[]
   ) {
-    console.log('Updating leaderboard with data:', leaderboard); // Debug logging
+    console.log('Updating leaderboard with data:', leaderboard);
     
     // Update compact leaderboard
     this.leaderboardList.innerHTML = '';
@@ -538,7 +514,7 @@ export class Game {
       const leaderboardItemElement = document.createElement('div');
       leaderboardItemElement.classList.add('leaderboard-item');
 
-      const rank = ['👑', '🥈', '🥉', '🐸'][index] || '🐸';
+      const rank = ['👑', '🥈', '🥉', '🛩️'][index] || '🛩️';
       
       const img = document.createElement('img');
       img.src = leaderboardItem.user.snoovatarUrl;
@@ -567,7 +543,7 @@ export class Game {
       emptyMessage.style.color = 'var(--text-secondary)';
       emptyMessage.style.fontSize = '18px';
       emptyMessage.style.fontWeight = '600';
-      emptyMessage.innerHTML = '🐸 No frog launchers yet! Be the first to launch! 🐸';
+      emptyMessage.innerHTML = '🛩️ No aerial frog pilots yet! Be the first to take flight! 🐸';
       this.fullLeaderboardList.appendChild(emptyMessage);
       return;
     }
@@ -577,7 +553,7 @@ export class Game {
       leaderboardItemElement.classList.add('full-leaderboard-item');
 
       const rankEmojis = ['👑', '🥈', '🥉'];
-      const rank = rankEmojis[index] || '🐸';
+      const rank = rankEmojis[index] || '🛩️';
       
       const rankElement = document.createElement('div');
       rankElement.classList.add('rank');
