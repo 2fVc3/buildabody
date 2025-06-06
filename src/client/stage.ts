@@ -24,7 +24,9 @@ import {
   MeshPhysicalMaterial,
   BackSide,
   TextureLoader,
-  RepeatWrapping
+  RepeatWrapping,
+  MeshStandardMaterial,
+  DoubleSide
 } from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
 import { EnvironmentEffects } from './environmentEffects';
@@ -78,6 +80,11 @@ export class Stage {
     // Update sky shader
     if (this.skyMesh.material instanceof ShaderMaterial) {
       this.skyMesh.material.uniforms.time.value = time;
+    }
+    
+    // Update ground shader
+    if (this.groundMesh.material instanceof ShaderMaterial) {
+      this.groundMesh.material.uniforms.time.value = time;
     }
     
     // Update environment effects
@@ -152,56 +159,103 @@ export class Stage {
   }
 
   private setupGround(): void {
-    // Create simple, beautiful grass terrain
-    const groundGeometry = new PlaneGeometry(2000, 2000, 64, 64);
+    // Create beautiful procedural terrain
+    const groundGeometry = new PlaneGeometry(2000, 2000, 128, 128);
     
-    // Simple grass material with subtle variation
+    // Beautiful grass terrain with proper textures
     const groundMaterial = new ShaderMaterial({
       uniforms: {
         time: { value: 0.0 },
         grassColor: { value: new Color(0x4a7c59) },
-        dirtColor: { value: new Color(0x8b4513) }
+        dirtColor: { value: new Color(0x8b4513) },
+        sandColor: { value: new Color(0xffe894) },
+        rockColor: { value: new Color(0x8B7355) }
       },
       vertexShader: `
         varying vec2 vUv;
         varying vec3 vPosition;
+        varying vec3 vNormal;
+        varying float vElevation;
+        
+        // Noise function for terrain generation
+        float noise(vec2 p) {
+          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+        
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amplitude = 0.5;
+          float frequency = 1.0;
+          
+          for(int i = 0; i < 4; i++) {
+            value += amplitude * noise(p * frequency);
+            amplitude *= 0.5;
+            frequency *= 2.0;
+          }
+          return value;
+        }
         
         void main() {
           vUv = uv;
           vPosition = position;
           
-          // Add subtle height variation
-          vec3 pos = position;
-          float noise = sin(position.x * 0.01) * sin(position.z * 0.01) * 0.5;
-          pos.y += noise;
+          // Create beautiful terrain elevation
+          vec2 pos = position.xz * 0.01;
+          float elevation = fbm(pos) * 2.0;
+          elevation += fbm(pos * 2.0) * 1.0;
+          elevation += fbm(pos * 4.0) * 0.5;
           
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+          vec3 newPosition = position;
+          newPosition.y += elevation;
+          vElevation = elevation;
+          
+          // Calculate normal for lighting
+          float dx = fbm((pos + vec2(0.01, 0.0)) * 1.0) - fbm((pos - vec2(0.01, 0.0)) * 1.0);
+          float dz = fbm((pos + vec2(0.0, 0.01)) * 1.0) - fbm((pos - vec2(0.0, 0.01)) * 1.0);
+          
+          vNormal = normalize(vec3(-dx * 20.0, 1.0, -dz * 20.0));
+          
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
         }
       `,
       fragmentShader: `
         uniform float time;
         uniform vec3 grassColor;
         uniform vec3 dirtColor;
+        uniform vec3 sandColor;
+        uniform vec3 rockColor;
         
         varying vec2 vUv;
         varying vec3 vPosition;
+        varying vec3 vNormal;
+        varying float vElevation;
         
         float noise(vec2 p) {
           return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
         }
         
         void main() {
-          vec2 uv = vUv * 20.0;
+          vec2 uv = vUv * 50.0;
           
-          // Grass with dirt patches
-          float grassMask = noise(uv + time * 0.01);
-          grassMask = smoothstep(0.3, 0.7, grassMask);
+          // Base terrain color mixing
+          vec3 color = sandColor;
           
-          vec3 color = mix(dirtColor, grassColor, grassMask);
+          // Grass on higher elevations
+          float grassMix = smoothstep(-0.5, 1.0, vElevation);
+          color = mix(color, grassColor, grassMix);
           
-          // Add subtle texture variation
-          float detail = noise(uv * 4.0) * 0.1;
+          // Rock on steep slopes
+          float steepness = 1.0 - dot(vNormal, vec3(0.0, 1.0, 0.0));
+          float rockMix = smoothstep(0.3, 0.7, steepness);
+          color = mix(color, rockColor, rockMix);
+          
+          // Add texture detail
+          float detail = noise(uv) * 0.1;
           color += detail;
+          
+          // Add some variation
+          float variation = noise(uv * 0.1) * 0.05;
+          color += variation;
           
           gl_FragColor = vec4(color, 1.0);
         }
@@ -216,34 +270,66 @@ export class Stage {
   }
 
   private setupWater(): void {
-    // Create beautiful, simple water
-    const waterGeometry = new PlaneGeometry(80, 80, 32, 32);
+    // Create stunning realistic water
+    const waterGeometry = new PlaneGeometry(100, 100, 64, 64);
     
     const waterMaterial = new ShaderMaterial({
       uniforms: {
         time: { value: 0.0 },
         waterColor: { value: new Color(0x006994) },
-        foamColor: { value: new Color(0xffffff) }
+        foamColor: { value: new Color(0xffffff) },
+        deepWaterColor: { value: new Color(0x003366) }
       },
       vertexShader: `
         uniform float time;
         varying vec2 vUv;
         varying vec3 vPosition;
+        varying vec3 vNormal;
         varying float vElevation;
+        
+        // Advanced noise for realistic water
+        float noise(vec2 p) {
+          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+        
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amplitude = 0.5;
+          float frequency = 1.0;
+          
+          for(int i = 0; i < 6; i++) {
+            value += amplitude * noise(p * frequency);
+            amplitude *= 0.5;
+            frequency *= 2.0;
+          }
+          return value;
+        }
         
         void main() {
           vUv = uv;
           
           vec3 pos = position;
           
-          // Create gentle waves
-          float wave1 = sin(pos.x * 0.1 + time * 2.0) * 0.3;
-          float wave2 = sin(pos.z * 0.15 + time * 1.5) * 0.2;
-          float wave3 = sin((pos.x + pos.z) * 0.08 + time * 2.5) * 0.15;
+          // Create realistic water waves
+          vec2 wavePos = pos.xz * 0.1;
+          float wave1 = sin(wavePos.x * 2.0 + time * 2.0) * 0.4;
+          float wave2 = sin(wavePos.y * 1.5 + time * 1.5) * 0.3;
+          float wave3 = sin((wavePos.x + wavePos.y) * 0.8 + time * 2.5) * 0.2;
           
-          float elevation = wave1 + wave2 + wave3;
+          // Add noise for realistic movement
+          float noiseValue = fbm(wavePos + time * 0.1) * 0.3;
+          
+          float elevation = wave1 + wave2 + wave3 + noiseValue;
           pos.y += elevation;
           vElevation = elevation;
+          
+          // Calculate normal for lighting
+          float dx = sin((wavePos.x + 0.1) * 2.0 + time * 2.0) * 0.4 - wave1;
+          float dz = sin((wavePos.y + 0.1) * 1.5 + time * 1.5) * 0.3 - wave2;
+          
+          vec3 tangent = normalize(vec3(1.0, dx * 10.0, 0.0));
+          vec3 bitangent = normalize(vec3(0.0, dz * 10.0, 1.0));
+          vNormal = normalize(cross(tangent, bitangent));
           
           vPosition = pos;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
@@ -253,33 +339,69 @@ export class Stage {
         uniform float time;
         uniform vec3 waterColor;
         uniform vec3 foamColor;
+        uniform vec3 deepWaterColor;
         
         varying vec2 vUv;
         varying vec3 vPosition;
+        varying vec3 vNormal;
         varying float vElevation;
         
+        // Fresnel effect for realistic water
+        float fresnel(vec3 viewDirection, vec3 normal, float power) {
+          return pow(1.0 - max(0.0, dot(viewDirection, normal)), power);
+        }
+        
+        // Water caustics
+        float caustics(vec2 uv, float time) {
+          vec2 p = uv * 8.0;
+          float c = 0.0;
+          
+          for(int i = 0; i < 3; i++) {
+            float t = time * 0.5 + float(i) * 2.0;
+            vec2 offset = vec2(sin(t), cos(t)) * 0.3;
+            c += sin(length(p + offset) * 3.0 - time * 2.0) * 0.3;
+          }
+          
+          return max(0.0, c);
+        }
+        
         void main() {
-          vec3 color = waterColor;
+          vec2 uv = vUv;
+          
+          // Base water color with depth variation
+          vec3 color = mix(deepWaterColor, waterColor, 0.7);
           
           // Add foam on wave peaks
-          float foam = smoothstep(0.2, 0.4, vElevation);
-          color = mix(color, foamColor, foam * 0.6);
+          float foam = smoothstep(0.3, 0.8, vElevation + 0.5);
+          color = mix(color, foamColor, foam * 0.8);
+          
+          // Add caustics effect
+          float causticsValue = caustics(uv + time * 0.1, time);
+          color += causticsValue * 0.3 * vec3(0.8, 1.0, 1.0);
+          
+          // Fresnel reflection
+          vec3 viewDirection = normalize(cameraPosition - vPosition);
+          float fresnelValue = fresnel(viewDirection, vNormal, 2.0);
+          
+          // Sky reflection
+          vec3 skyColor = vec3(0.5, 0.8, 1.0);
+          color = mix(color, skyColor, fresnelValue * 0.4);
           
           // Add sparkles
-          float sparkle = sin(vUv.x * 50.0 + time * 3.0) * sin(vUv.y * 50.0 + time * 2.0);
-          sparkle = pow(max(0.0, sparkle), 8.0);
-          color += sparkle * 0.3;
+          float sparkle = sin(uv.x * 80.0 + time * 3.0) * sin(uv.y * 80.0 + time * 2.0);
+          sparkle = pow(max(0.0, sparkle), 12.0);
+          color += sparkle * 0.6;
           
-          // Make it slightly transparent
-          gl_FragColor = vec4(color, 0.9);
+          gl_FragColor = vec4(color, 0.95);
         }
       `,
-      transparent: true
+      transparent: true,
+      side: DoubleSide
     });
     
     this.waterMesh = new Mesh(waterGeometry, waterMaterial);
     this.waterMesh.rotation.x = -Math.PI / 2;
-    this.waterMesh.position.y = -0.1;
+    this.waterMesh.position.y = -0.2;
     this.waterMesh.receiveShadow = true;
     this.add(this.waterMesh);
   }
@@ -290,28 +412,74 @@ export class Stage {
       uniforms: {
         time: { value: 0.0 },
         skyColor: { value: new Color(0x87CEEB) },
-        horizonColor: { value: new Color(0xFFE4B5) }
+        horizonColor: { value: new Color(0xFFE4B5) },
+        sunColor: { value: new Color(0xFFFFAA) },
+        cloudiness: { value: 0.3 }
       },
       vertexShader: `
         varying vec3 vWorldPosition;
+        varying vec2 vUv;
         
         void main() {
+          vUv = uv;
           vec4 worldPosition = modelMatrix * vec4(position, 1.0);
           vWorldPosition = worldPosition.xyz;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
+        uniform float time;
         uniform vec3 skyColor;
         uniform vec3 horizonColor;
+        uniform vec3 sunColor;
+        uniform float cloudiness;
         
         varying vec3 vWorldPosition;
+        varying vec2 vUv;
+        
+        float noise(vec2 p) {
+          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+        
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amplitude = 0.5;
+          float frequency = 1.0;
+          
+          for(int i = 0; i < 4; i++) {
+            value += amplitude * noise(p * frequency);
+            amplitude *= 0.5;
+            frequency *= 2.0;
+          }
+          return value;
+        }
         
         void main() {
           vec3 direction = normalize(vWorldPosition);
           float elevation = direction.y;
           
+          // Sky gradient
           vec3 color = mix(horizonColor, skyColor, max(0.0, elevation));
+          
+          // Add sun
+          vec3 sunDirection = normalize(vec3(1.0, 0.3, 0.5));
+          float sunDistance = distance(direction, sunDirection);
+          float sunIntensity = 1.0 - smoothstep(0.0, 0.1, sunDistance);
+          color = mix(color, sunColor, sunIntensity * 0.8);
+          
+          // Sun glow
+          float sunGlow = 1.0 - smoothstep(0.0, 0.3, sunDistance);
+          color += sunColor * sunGlow * 0.3;
+          
+          // Clouds
+          if(elevation > 0.0) {
+            vec2 cloudUv = direction.xz / (direction.y + 0.1) + time * 0.01;
+            float cloudNoise = fbm(cloudUv * 2.0 + time * 0.02);
+            cloudNoise = smoothstep(0.4, 0.8, cloudNoise);
+            
+            vec3 cloudColor = mix(vec3(1.0), vec3(0.8, 0.8, 0.9), elevation);
+            color = mix(color, cloudColor, cloudNoise * cloudiness);
+          }
           
           gl_FragColor = vec4(color, 1.0);
         }
@@ -332,39 +500,39 @@ export class Stage {
   }
 
   private setupEnvironment(): void {
-    // Launch pad
-    const padGeometry = new CylinderGeometry(2, 2, 0.2, 16);
-    const padMaterial = new MeshLambertMaterial({ 
+    // Beautiful launch pad
+    const padGeometry = new CylinderGeometry(2.5, 2.5, 0.3, 16);
+    const padMaterial = new MeshStandardMaterial({ 
       color: 0x8B4513,
-      transparent: true,
-      opacity: 0.9
+      roughness: 0.8,
+      metalness: 0.1
     });
     const launchPad = new Mesh(padGeometry, padMaterial);
-    launchPad.position.set(0, 0.1, 0);
+    launchPad.position.set(0, 0.15, 0);
     launchPad.castShadow = true;
     launchPad.receiveShadow = true;
     this.add(launchPad);
 
-    this.createEnhancedLilyPads();
-    this.createEnhancedRocks();
-    this.createWaterPlants();
+    this.createBeautifulLilyPads();
+    this.createNaturalRocks();
+    this.createLushVegetation();
   }
 
-  private createEnhancedLilyPads(): void {
-    for (let i = 0; i < 12; i++) {
-      const lilyPadGeometry = new CylinderGeometry(1.2, 1, 0.1, 8);
-      const lilyPadMaterial = new MeshLambertMaterial({ 
-        color: new Color().setHSL(0.3, 0.6, 0.4),
-        transparent: true,
-        opacity: 0.8
+  private createBeautifulLilyPads(): void {
+    for (let i = 0; i < 15; i++) {
+      const lilyPadGeometry = new CylinderGeometry(1.5, 1.2, 0.1, 12);
+      const lilyPadMaterial = new MeshStandardMaterial({ 
+        color: new Color().setHSL(0.3, 0.7, 0.4),
+        roughness: 0.6,
+        metalness: 0.0
       });
       const lilyPad = new Mesh(lilyPadGeometry, lilyPadMaterial);
       
-      const angle = (i / 12) * Math.PI * 2;
-      const distance = 15 + Math.random() * 15;
+      const angle = (i / 15) * Math.PI * 2;
+      const distance = 20 + Math.random() * 25;
       lilyPad.position.set(
         Math.cos(angle) * distance,
-        0.05,
+        -0.15,
         Math.sin(angle) * distance
       );
       lilyPad.rotation.y = Math.random() * Math.PI * 2;
@@ -372,44 +540,46 @@ export class Stage {
       lilyPad.receiveShadow = true;
       this.add(lilyPad);
       
-      if (Math.random() < 0.4) {
-        const flowerGeometry = new ConeGeometry(0.3, 0.5, 6);
-        const flowerMaterial = new MeshLambertMaterial({ 
-          color: new Color().setHSL(Math.random() * 0.1 + 0.9, 0.8, 0.8)
+      // Add beautiful flowers
+      if (Math.random() < 0.5) {
+        const flowerGeometry = new ConeGeometry(0.4, 0.6, 8);
+        const flowerMaterial = new MeshStandardMaterial({ 
+          color: new Color().setHSL(Math.random() * 0.1 + 0.9, 0.9, 0.8)
         });
         const flower = new Mesh(flowerGeometry, flowerMaterial);
         flower.position.copy(lilyPad.position);
-        flower.position.y += 0.3;
+        flower.position.y += 0.4;
         flower.castShadow = true;
         this.add(flower);
       }
     }
   }
 
-  private createEnhancedRocks(): void {
-    for (let i = 0; i < 20; i++) {
-      const rockSize = 0.3 + Math.random() * 1.2;
+  private createNaturalRocks(): void {
+    for (let i = 0; i < 25; i++) {
+      const rockSize = 0.4 + Math.random() * 1.5;
       const rockGeometry = new BoxGeometry(
         rockSize,
-        rockSize * 0.6,
-        rockSize * 0.8
+        rockSize * 0.7,
+        rockSize * 0.9
       );
       
-      const rockHue = 0.1 + Math.random() * 0.1;
-      const rockMaterial = new MeshLambertMaterial({ 
-        color: new Color().setHSL(rockHue, 0.2, 0.3 + Math.random() * 0.2)
+      const rockMaterial = new MeshStandardMaterial({ 
+        color: new Color().setHSL(0.1, 0.3, 0.3 + Math.random() * 0.2),
+        roughness: 0.9,
+        metalness: 0.0
       });
       
       const rock = new Mesh(rockGeometry, rockMaterial);
       rock.position.set(
-        (Math.random() - 0.5) * 60,
-        rockSize * 0.3,
-        (Math.random() - 0.5) * 60
+        (Math.random() - 0.5) * 80,
+        rockSize * 0.35,
+        (Math.random() - 0.5) * 80
       );
       rock.rotation.set(
-        (Math.random() - 0.5) * 0.4,
+        (Math.random() - 0.5) * 0.5,
         Math.random() * Math.PI * 2,
-        (Math.random() - 0.5) * 0.4
+        (Math.random() - 0.5) * 0.5
       );
       rock.castShadow = true;
       rock.receiveShadow = true;
@@ -417,33 +587,36 @@ export class Stage {
     }
   }
 
-  private createWaterPlants(): void {
-    for (let i = 0; i < 15; i++) {
-      const stemGeometry = new CylinderGeometry(0.05, 0.08, 2 + Math.random() * 2, 6);
-      const stemMaterial = new MeshLambertMaterial({ 
-        color: new Color().setHSL(0.25, 0.7, 0.3)
+  private createLushVegetation(): void {
+    // Create beautiful grass and plants
+    for (let i = 0; i < 20; i++) {
+      const stemGeometry = new CylinderGeometry(0.08, 0.12, 3 + Math.random() * 3, 8);
+      const stemMaterial = new MeshStandardMaterial({ 
+        color: new Color().setHSL(0.25, 0.8, 0.3),
+        roughness: 0.7
       });
       const stem = new Mesh(stemGeometry, stemMaterial);
       
       const angle = Math.random() * Math.PI * 2;
-      const distance = 8 + Math.random() * 25;
+      const distance = 10 + Math.random() * 30;
       stem.position.set(
         Math.cos(angle) * distance,
-        1,
+        1.5,
         Math.sin(angle) * distance
       );
-      stem.rotation.z = (Math.random() - 0.5) * 0.3;
+      stem.rotation.z = (Math.random() - 0.5) * 0.4;
       stem.castShadow = true;
       this.add(stem);
       
-      if (Math.random() < 0.6) {
-        const cattailGeometry = new CylinderGeometry(0.15, 0.1, 0.8, 8);
-        const cattailMaterial = new MeshLambertMaterial({ 
-          color: new Color().setHSL(0.08, 0.6, 0.4)
+      // Add cattails
+      if (Math.random() < 0.7) {
+        const cattailGeometry = new CylinderGeometry(0.2, 0.15, 1.0, 8);
+        const cattailMaterial = new MeshStandardMaterial({ 
+          color: new Color().setHSL(0.08, 0.7, 0.4)
         });
         const cattail = new Mesh(cattailGeometry, cattailMaterial);
         cattail.position.copy(stem.position);
-        cattail.position.y += 1.5;
+        cattail.position.y += 2.0;
         cattail.castShadow = true;
         this.add(cattail);
       }
