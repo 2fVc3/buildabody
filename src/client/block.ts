@@ -1,4 +1,4 @@
-import { BoxGeometry, Euler, Mesh, MeshToonMaterial, Vector3 } from 'three';
+import { BoxGeometry, Euler, Mesh, MeshToonMaterial, Vector3, CylinderGeometry, Group } from 'three';
 import { BlockEffect } from '../shared/types/postConfig';
 
 type CutState = 'missed' | 'perfect' | 'chopped';
@@ -12,14 +12,15 @@ export class Block {
   private originalScale: Vector3;
 
   constructor(scale: Vector3 | undefined = undefined) {
-    // Create a French fry material with proper shading
+    // Create a golden French fry material
     this.material = new MeshToonMaterial({
-      roughness: 0.3,
+      color: 0xFFD700, // Golden color
+      roughness: 0.4,
       metalness: 0.1,
     });
 
-    // Create a French fry shaped geometry - longer and thinner
-    const geometry = new BoxGeometry(1, 1, 1);
+    // Create a French fry shaped geometry - rounded cylinder for more realistic fry shape
+    const geometry = new CylinderGeometry(0.4, 0.4, 1, 8);
     this.mesh = new Mesh(geometry, this.material);
 
     if (scale !== undefined) {
@@ -27,8 +28,8 @@ export class Block {
       this.originalScale = scale.clone();
     }
 
-    // Rotate for Jenga-style placement
-    this.mesh.rotation.set(0, Math.PI / 2, 0);
+    // Rotate to lay horizontally like a fry
+    this.mesh.rotation.set(0, 0, Math.PI / 2);
   }
 
   // prettier-ignore

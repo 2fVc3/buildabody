@@ -16,18 +16,18 @@ const defaultPostConfig: PostConfig = {
     },
     'colors': {
       'base': {
-        'r': 255,
-        'g': 215,
-        'b': 0,
+        'r': 255, // Golden red component
+        'g': 215, // Golden green component
+        'b': 0,   // Golden blue component
       },
       'range': {
-        'r': 20,
-        'g': 30,
-        'b': 0,
+        'r': 30,  // Variation in red (towards orange/brown)
+        'g': 40,  // Variation in green
+        'b': 20,  // Small variation in blue
       },
       'intensity': {
-        'r': 0.2,
-        'g': 0.3,
+        'r': 0.15,
+        'g': 0.2,
         'b': 0.1,
       },
     },
@@ -93,8 +93,13 @@ export const postConfigMaybeGet = async ({
   redis: Context['redis'];
   postId: string;
 }): Promise<PostConfig | undefined> => {
-  const config = await redis.get(getPostConfigKey(postId));
-  return config ? JSON.parse(config) : undefined;
+  try {
+    const config = await redis.get(getPostConfigKey(postId));
+    return config ? JSON.parse(config) : undefined;
+  } catch (error) {
+    console.error(`Error getting post config for ${postId}:`, error);
+    return undefined;
+  }
 };
 
 export const postConfigGet = async ({
@@ -105,7 +110,10 @@ export const postConfigGet = async ({
   postId: string;
 }): Promise<PostConfig> => {
   const config = await postConfigMaybeGet({ redis, postId });
-  if (!config) throw new Error('Post config not found');
+  if (!config) {
+    console.log(`No config found for post ${postId}, using default config`);
+    return defaultPostConfig;
+  }
   return config;
 };
 
@@ -118,7 +126,12 @@ export const postConfigSet = async ({
   postId: string;
   config: Partial<PostConfig>;
 }): Promise<void> => {
-  await redis.set(getPostConfigKey(postId), JSON.stringify(config));
+  try {
+    await redis.set(getPostConfigKey(postId), JSON.stringify(config));
+  } catch (error) {
+    console.error(`Error setting post config for ${postId}:`, error);
+    throw error;
+  }
 };
 
 export const postConfigNew = async ({
@@ -130,8 +143,15 @@ export const postConfigNew = async ({
   postId: string;
   config?: Partial<PostConfig>;
 }): Promise<void> => {
-  await ctx.redis.set(
-    getPostConfigKey(postId),
-    JSON.stringify({ ...defaultPostConfig, ...config })
-  );
+  try {
+    const finalConfig = { ...defaultPostConfig, ...config };
+    await ctx.redis.set(
+      getPostConfigKey(postId),
+      JSON.stringify(finalConfig)
+    );
+    console.log(`Created new post config for ${postId}`);
+  } catch (error) {
+    console.error(`Error creating post config for ${postId}:`, error);
+    throw error;
+  }
 };

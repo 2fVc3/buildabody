@@ -10,6 +10,7 @@ import { Devvit } from './devvit';
 import type { PostConfig } from '../shared/types/postConfig';
 import { User } from '../shared/types/user';
 import { InitMessage } from '../shared/types/message';
+import { BlockEffect } from '../shared/types/postConfig';
 
 type GameState = 'loading' | 'ready' | 'playing' | 'ended' | 'resetting';
 
@@ -266,7 +267,11 @@ export class Game {
   private addBlock(targetBlock: Block): void {
     const block = this.pool.get();
 
-    block.rotation.set(0, 0, 0);
+    // Set rotation for Jenga-style alternating layers
+    const level = this.blocks.length;
+    const isAlternating = level % 2 === 0;
+    
+    block.rotation.set(0, isAlternating ? 0 : Math.PI / 2, Math.PI / 2);
     block.scale.set(targetBlock.scale.x, targetBlock.scale.y, targetBlock.scale.z);
     block.position.set(targetBlock.x, targetBlock.y + targetBlock.height, targetBlock.z);
     block.direction.set(0, 0, 0);
@@ -278,8 +283,7 @@ export class Game {
     this.stage.add(block.getMesh());
     this.blocks.push(block);
 
-    const length = this.blocks.length;
-    if (length % 2 === 0) {
+    if (isAlternating) {
       block.direction.x = Math.random() > 0.5 ? 1 : -1;
     } else {
       block.direction.z = Math.random() > 0.5 ? 1 : -1;
@@ -288,8 +292,8 @@ export class Game {
     block.moveScalar(this.config.gameplay.distance);
     this.stage.setCamera(block.y);
 
-    this.scoreContainer.innerHTML = String(length - 1);
-    if (length >= this.config.instructions.height) {
+    this.scoreContainer.innerHTML = String(level);
+    if (level >= this.config.instructions.height) {
       this.instructions.classList.add('hide');
     }
   }
@@ -297,7 +301,7 @@ export class Game {
   private addChoppedBlock(position: Vector3, scale: Vector3, sourceBlock: Block): void {
     const block = this.pool.get();
 
-    block.rotation.set(0, 0, 0);
+    block.rotation.set(0, 0, Math.PI / 2);
     block.scale.set(scale.x, scale.y, scale.z);
     block.position.copy(position);
     block.color = sourceBlock.color;
@@ -371,10 +375,13 @@ export class Game {
   private getNextBlockColor(): number {
     const { base, range, intensity } = this.config.block.colors;
     const offset = this.blocks.length + this.colorOffset;
-    const r = base.r + range.r * Math.sin(intensity.r * offset);
-    const g = base.g + range.g * Math.sin(intensity.g * offset);
-    const b = base.b + range.b * Math.sin(intensity.b * offset);
-    return (r << 16) + (g << 8) + b;
+    
+    // Ensure we stay in golden/brown French fry colors
+    const r = Math.max(200, Math.min(255, base.r + range.r * Math.sin(intensity.r * offset)));
+    const g = Math.max(150, Math.min(220, base.g + range.g * Math.sin(intensity.g * offset)));
+    const b = Math.max(0, Math.min(50, base.b + range.b * Math.sin(intensity.b * offset)));
+    
+    return (Math.floor(r) << 16) + (Math.floor(g) << 8) + Math.floor(b);
   }
 
   private updateLeaderboard(
