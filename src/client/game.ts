@@ -147,16 +147,18 @@ export class Game {
       this.showQuote(event.detail.quote);
     });
 
-    // Menu navigation - FIXED: Prevent event propagation
+    // Menu navigation - FIXED: Prevent event propagation and properly handle clicks
     this.leaderboardButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      console.log('Leaderboard button clicked');
       this.showLeaderboardScreen();
     });
 
     this.instructionsButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      console.log('Instructions button clicked');
       this.showInstructionsScreen();
     });
 
@@ -218,6 +220,7 @@ export class Game {
   }
 
   private showLeaderboardScreen(): void {
+    console.log('Showing leaderboard screen');
     this.leaderboardScreen.classList.add('show');
     this.updateFullLeaderboard();
   }
@@ -227,6 +230,7 @@ export class Game {
   }
 
   private showInstructionsScreen(): void {
+    console.log('Showing instructions screen');
     this.instructionsScreen.classList.add('show');
   }
 
@@ -270,13 +274,6 @@ export class Game {
     }
 
     this.powerMeter.style.width = `${this.power}%`;
-    this.powerMeter.style.backgroundColor = this.getPowerColor();
-  }
-
-  private getPowerColor(): string {
-    if (this.power < 30) return '#ef4444';
-    if (this.power < 70) return '#f97316';
-    return '#22c55e';
   }
 
   private updateFrogFlight(deltaTime: number): void {
@@ -550,16 +547,17 @@ export class Game {
   }
 
   private updateFullLeaderboard(): void {
+    console.log('Updating full leaderboard with data:', this.leaderboardData);
+    
     this.fullLeaderboardList.innerHTML = '';
     
     if (this.leaderboardData.length === 0) {
       const emptyMessage = document.createElement('div');
       emptyMessage.style.textAlign = 'center';
       emptyMessage.style.padding = '40px';
-      emptyMessage.style.color = '#ffffff';
+      emptyMessage.style.color = 'var(--neutral-600)';
       emptyMessage.style.fontSize = '18px';
-      emptyMessage.style.fontWeight = 'bold';
-      emptyMessage.style.textShadow = '2px 2px 4px rgba(22, 101, 52, 0.8)';
+      emptyMessage.style.fontWeight = '600';
       emptyMessage.innerHTML = '🐸 No frog launchers yet! Be the first to launch! 🐸';
       this.fullLeaderboardList.appendChild(emptyMessage);
       return;
@@ -579,6 +577,7 @@ export class Game {
 
       const img = document.createElement('img');
       img.src = leaderboardItem.user.snoovatarUrl;
+      img.alt = `${leaderboardItem.user.username}'s avatar`;
       leaderboardItemElement.appendChild(img);
       
       const infoElement = document.createElement('div');
