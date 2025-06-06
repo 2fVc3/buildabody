@@ -22,11 +22,11 @@ import {
   PCFSoftShadowMap,
   ACESFilmicToneMapping,
   MeshPhysicalMaterial,
-  BackSide
+  BackSide,
+  TextureLoader,
+  RepeatWrapping
 } from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
-import { Water } from './water';
-import { ProceduralTerrain } from './proceduralTerrain';
 import { EnvironmentEffects } from './environmentEffects';
 
 export class Stage {
@@ -41,8 +41,8 @@ export class Stage {
   private clock: Clock;
   
   // Enhanced visual elements
-  private water!: Water;
-  private terrain!: ProceduralTerrain;
+  private waterMesh!: Mesh;
+  private groundMesh!: Mesh;
   private skyMesh!: Mesh;
   private environmentEffects!: EnvironmentEffects;
 
@@ -57,7 +57,7 @@ export class Stage {
     this.setupRenderer(devicePixelRatio);
     this.setupCamera();
     this.setupLights();
-    this.setupTerrain();
+    this.setupGround();
     this.setupWater();
     this.setupSky();
     this.setupEnvironment();
@@ -71,10 +71,9 @@ export class Stage {
     const time = this.clock.getElapsedTime();
     
     // Update water animation
-    this.water.update();
-    
-    // Update terrain
-    this.terrain.update(time);
+    if (this.waterMesh.material instanceof ShaderMaterial) {
+      this.waterMesh.material.uniforms.time.value = time;
+    }
     
     // Update sky shader
     if (this.skyMesh.material instanceof ShaderMaterial) {
@@ -152,14 +151,137 @@ export class Stage {
     this.add(ambientLight);
   }
 
-  private setupTerrain(): void {
-    this.terrain = new ProceduralTerrain();
-    this.add(this.terrain.getMesh());
+  private setupGround(): void {
+    // Create simple, beautiful grass terrain
+    const groundGeometry = new PlaneGeometry(2000, 2000, 64, 64);
+    
+    // Simple grass material with subtle variation
+    const groundMaterial = new ShaderMaterial({
+      uniforms: {
+        time: { value: 0.0 },
+        grassColor: { value: new Color(0x4a7c59) },
+        dirtColor: { value: new Color(0x8b4513) }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vPosition;
+        
+        void main() {
+          vUv = uv;
+          vPosition = position;
+          
+          // Add subtle height variation
+          vec3 pos = position;
+          float noise = sin(position.x * 0.01) * sin(position.z * 0.01) * 0.5;
+          pos.y += noise;
+          
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        uniform vec3 grassColor;
+        uniform vec3 dirtColor;
+        
+        varying vec2 vUv;
+        varying vec3 vPosition;
+        
+        float noise(vec2 p) {
+          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+        
+        void main() {
+          vec2 uv = vUv * 20.0;
+          
+          // Grass with dirt patches
+          float grassMask = noise(uv + time * 0.01);
+          grassMask = smoothstep(0.3, 0.7, grassMask);
+          
+          vec3 color = mix(dirtColor, grassColor, grassMask);
+          
+          // Add subtle texture variation
+          float detail = noise(uv * 4.0) * 0.1;
+          color += detail;
+          
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `
+    });
+    
+    this.groundMesh = new Mesh(groundGeometry, groundMaterial);
+    this.groundMesh.rotation.x = -Math.PI / 2;
+    this.groundMesh.position.y = 0;
+    this.groundMesh.receiveShadow = true;
+    this.add(this.groundMesh);
   }
 
   private setupWater(): void {
-    this.water = new Water();
-    this.add(this.water.getMesh());
+    // Create beautiful, simple water
+    const waterGeometry = new PlaneGeometry(80, 80, 32, 32);
+    
+    const waterMaterial = new ShaderMaterial({
+      uniforms: {
+        time: { value: 0.0 },
+        waterColor: { value: new Color(0x006994) },
+        foamColor: { value: new Color(0xffffff) }
+      },
+      vertexShader: `
+        uniform float time;
+        varying vec2 vUv;
+        varying vec3 vPosition;
+        varying float vElevation;
+        
+        void main() {
+          vUv = uv;
+          
+          vec3 pos = position;
+          
+          // Create gentle waves
+          float wave1 = sin(pos.x * 0.1 + time * 2.0) * 0.3;
+          float wave2 = sin(pos.z * 0.15 + time * 1.5) * 0.2;
+          float wave3 = sin((pos.x + pos.z) * 0.08 + time * 2.5) * 0.15;
+          
+          float elevation = wave1 + wave2 + wave3;
+          pos.y += elevation;
+          vElevation = elevation;
+          
+          vPosition = pos;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        uniform vec3 waterColor;
+        uniform vec3 foamColor;
+        
+        varying vec2 vUv;
+        varying vec3 vPosition;
+        varying float vElevation;
+        
+        void main() {
+          vec3 color = waterColor;
+          
+          // Add foam on wave peaks
+          float foam = smoothstep(0.2, 0.4, vElevation);
+          color = mix(color, foamColor, foam * 0.6);
+          
+          // Add sparkles
+          float sparkle = sin(vUv.x * 50.0 + time * 3.0) * sin(vUv.y * 50.0 + time * 2.0);
+          sparkle = pow(max(0.0, sparkle), 8.0);
+          color += sparkle * 0.3;
+          
+          // Make it slightly transparent
+          gl_FragColor = vec4(color, 0.9);
+        }
+      `,
+      transparent: true
+    });
+    
+    this.waterMesh = new Mesh(waterGeometry, waterMaterial);
+    this.waterMesh.rotation.x = -Math.PI / 2;
+    this.waterMesh.position.y = -0.1;
+    this.waterMesh.receiveShadow = true;
+    this.add(this.waterMesh);
   }
 
   private setupSky(): void {
@@ -167,73 +289,29 @@ export class Stage {
     const skyMaterial = new ShaderMaterial({
       uniforms: {
         time: { value: 0.0 },
-        sunPosition: { value: new Vector3(0, 1, 0) },
         skyColor: { value: new Color(0x87CEEB) },
-        horizonColor: { value: new Color(0xFFE4B5) },
-        sunColor: { value: new Color(0xFFFFAA) },
-        cloudiness: { value: 0.3 }
+        horizonColor: { value: new Color(0xFFE4B5) }
       },
       vertexShader: `
         varying vec3 vWorldPosition;
-        varying vec2 vUv;
         
         void main() {
-          vUv = uv;
           vec4 worldPosition = modelMatrix * vec4(position, 1.0);
           vWorldPosition = worldPosition.xyz;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
-        uniform float time;
-        uniform vec3 sunPosition;
         uniform vec3 skyColor;
         uniform vec3 horizonColor;
-        uniform vec3 sunColor;
-        uniform float cloudiness;
         
         varying vec3 vWorldPosition;
-        varying vec2 vUv;
-        
-        float noise(vec2 p) {
-          return sin(p.x * 10.0) * sin(p.y * 10.0);
-        }
-        
-        float fbm(vec2 p) {
-          float value = 0.0;
-          float amplitude = 0.5;
-          float frequency = 1.0;
-          
-          for(int i = 0; i < 4; i++) {
-            value += amplitude * noise(p * frequency);
-            amplitude *= 0.5;
-            frequency *= 2.0;
-          }
-          return value;
-        }
         
         void main() {
           vec3 direction = normalize(vWorldPosition);
           float elevation = direction.y;
           
           vec3 color = mix(horizonColor, skyColor, max(0.0, elevation));
-          
-          float sunDistance = distance(direction, normalize(sunPosition));
-          float sunIntensity = 1.0 - smoothstep(0.0, 0.1, sunDistance);
-          color = mix(color, sunColor, sunIntensity * 0.8);
-          
-          float sunGlow = 1.0 - smoothstep(0.0, 0.3, sunDistance);
-          color += sunColor * sunGlow * 0.3;
-          
-          vec2 cloudUv = direction.xz / (direction.y + 0.1) + time * 0.01;
-          float cloudNoise = fbm(cloudUv * 2.0 + time * 0.02);
-          cloudNoise = smoothstep(0.4, 0.8, cloudNoise);
-          
-          vec3 cloudColor = mix(vec3(1.0), vec3(0.8, 0.8, 0.9), elevation);
-          color = mix(color, cloudColor, cloudNoise * cloudiness);
-          
-          float scatter = pow(max(0.0, 1.0 - elevation), 2.0);
-          color = mix(color, horizonColor, scatter * 0.3);
           
           gl_FragColor = vec4(color, 1.0);
         }
@@ -387,11 +465,6 @@ export class Stage {
     const distance = Math.sqrt(frogPosition.x ** 2 + frogPosition.z ** 2);
     this.updateSceneryBasedOnDistance(distance, frogPosition);
     
-    this.water.setMousePosition(
-      (frogPosition.x / 100) * 0.5 + 0.5,
-      (frogPosition.z / 100) * 0.5 + 0.5
-    );
-    
     this.environmentEffects.createDistanceBasedEffects(distance, frogPosition);
   }
 
@@ -415,46 +488,32 @@ export class Stage {
       skyColor = new Color(0x87CEEB);
       fogColor = new Color(0x87CEEB);
       waterColor = new Color(0x006994);
-      this.water.setWaveHeight(1.0);
-      this.water.setWaveSpeed(1.0);
     } else if (distance < 100) {
       skyColor = new Color(0xFF6B6B);
       fogColor = new Color(0xFF6B6B);
       waterColor = new Color(0x8B0000);
-      this.water.setWaveHeight(1.5);
-      this.water.setWaveSpeed(1.2);
     } else if (distance < 200) {
       skyColor = new Color(0x9370DB);
       fogColor = new Color(0x9370DB);
       waterColor = new Color(0x4B0082);
-      this.water.setWaveHeight(2.0);
-      this.water.setWaveSpeed(1.5);
     } else if (distance < 300) {
       skyColor = new Color(0x32CD32);
       fogColor = new Color(0x32CD32);
       waterColor = new Color(0x006400);
-      this.water.setWaveHeight(2.5);
-      this.water.setWaveSpeed(2.0);
     } else if (distance < 500) {
       skyColor = new Color(0xFF69B4);
       fogColor = new Color(0xFF69B4);
       waterColor = new Color(0xFF1493);
-      this.water.setWaveHeight(3.0);
-      this.water.setWaveSpeed(2.5);
     } else if (distance < 750) {
       skyColor = new Color(0xFF4500);
       fogColor = new Color(0xFF4500);
       waterColor = new Color(0xFF6347);
-      this.water.setWaveHeight(4.0);
-      this.water.setWaveSpeed(3.0);
     } else {
       const time = Date.now() * 0.001;
       const hue = (time * 0.1) % 1;
       skyColor = new Color().setHSL(hue, 0.8, 0.6);
       fogColor = new Color().setHSL(hue, 0.8, 0.4);
       waterColor = new Color().setHSL(hue, 0.9, 0.3);
-      this.water.setWaveHeight(5.0 + Math.sin(time) * 2.0);
-      this.water.setWaveSpeed(4.0 + Math.cos(time) * 1.0);
     }
 
     this.renderer.setClearColor(skyColor);
@@ -464,7 +523,10 @@ export class Stage {
       (this.scene.fog as Fog).far = Math.max(50, 200 - distance * 0.2);
     }
     
-    this.water.setWaterColor(waterColor);
+    // Update water color
+    if (this.waterMesh.material instanceof ShaderMaterial) {
+      this.waterMesh.material.uniforms.waterColor.value = waterColor;
+    }
     
     if (this.skyMesh.material instanceof ShaderMaterial) {
       this.skyMesh.material.uniforms.skyColor.value = skyColor;
@@ -793,8 +855,9 @@ export class Stage {
       (this.scene.fog as Fog).far = 200;
     }
     
-    this.water.setWaterColor(new Color(0x006994));
-    this.water.setWaveHeight(1.0);
-    this.water.setWaveSpeed(1.0);
+    // Reset water color
+    if (this.waterMesh.material instanceof ShaderMaterial) {
+      this.waterMesh.material.uniforms.waterColor.value = new Color(0x006994);
+    }
   }
 }
