@@ -1,4 +1,4 @@
-import { BoxGeometry, Euler, Mesh, MeshToonMaterial, Vector3 } from 'three';
+import { BoxGeometry, Euler, Mesh, MeshLambertMaterial, Vector3 } from 'three';
 import { BlockEffect } from '../shared/types/postConfig';
 
 type CutState = 'missed' | 'perfect' | 'chopped';
@@ -8,18 +8,16 @@ export class Block {
   public effect: BlockEffect = { type: 'none', duration: 0, magnitude: 0 };
 
   private mesh: Mesh;
-  private material: MeshToonMaterial;
+  private material: MeshLambertMaterial;
   private originalScale: Vector3;
 
   constructor(scale: Vector3 | undefined = undefined) {
-    // Create a golden French fry material
-    this.material = new MeshToonMaterial({
-      color: 0xFFD700, // Golden color
-      roughness: 0.4,
-      metalness: 0.1,
+    // Create a wooden material like in the image
+    this.material = new MeshLambertMaterial({
+      color: 0xDEB887, // Burlywood color like wooden Jenga blocks
     });
 
-    // Create French fry shaped geometry - rectangular but with better proportions
+    // Create Jenga block geometry - rectangular like wooden blocks
     const geometry = new BoxGeometry(1, 1, 1);
     this.mesh = new Mesh(geometry, this.material);
 
@@ -28,7 +26,7 @@ export class Block {
       this.originalScale = scale.clone();
     }
 
-    // Start with no rotation - we'll handle Jenga rotation in the game logic
+    // Start with no rotation - we'll handle rotation in game logic
     this.mesh.rotation.set(0, 0, 0);
   }
 
@@ -74,17 +72,14 @@ export class Block {
     
     switch (effect.type) {
       case 'grow':
-        // Scale more in length for fry effect
-        this.scale.y *= (1 + effect.magnitude * 1.5);
-        this.scale.x *= (1 + effect.magnitude * 0.5);
-        this.scale.z *= (1 + effect.magnitude * 0.5);
+        this.scale.multiplyScalar(1 + effect.magnitude);
         break;
       case 'shrink':
         this.scale.multiplyScalar(1 - effect.magnitude);
         break;
       case 'rainbow':
-        // Golden-brown color variations for fries
-        this.material.color.setHSL(0.08 + Math.random() * 0.04, 0.7, 0.6);
+        // Wooden color variations
+        this.material.color.setHSL(0.08 + Math.random() * 0.04, 0.3, 0.7);
         break;
     }
   }

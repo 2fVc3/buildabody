@@ -79,7 +79,7 @@ export class Game {
     this.stage.resize(width, height);
 
     this.blocks = [];
-    this.addBaseBlock();
+    this.addBaseLayer();
 
     this.pool = new Pool(() => new Block());
 
@@ -122,9 +122,10 @@ export class Game {
     if (!currentBlock) return;
 
     // Check if block is too far from the stack
-    const baseBlock = this.blocks[this.blocks.length - 2];
-    if (!baseBlock) return;
+    const baseLayer = this.getBaseLayerForLevel(this.blocks.length - 1);
+    if (baseLayer.length === 0) return;
 
+    const baseBlock = baseLayer[0]!;
     const xDiff = Math.abs(currentBlock.x - baseBlock.x);
     const zDiff = Math.abs(currentBlock.z - baseBlock.z);
     
@@ -140,7 +141,7 @@ export class Game {
     this.updateState('ended');
     
     // Animate blocks falling
-    const fallDelay = 50;
+    const fallDelay = 30;
     this.blocks.forEach((block, index) => {
       new Tween(block.position)
         .to({
@@ -195,7 +196,7 @@ export class Game {
     this.colorOffset = Math.round(Math.random() * 100);
     this.scoreContainer.innerHTML = '0';
     this.updateState('playing');
-    this.addBlock(this.blocks[0]!);
+    this.addNewLayer();
   }
 
   private async restartGame(): Promise<void> {
@@ -233,19 +234,19 @@ export class Game {
 
     setTimeout(async () => {
       this.blocks = [];
-      this.addBaseBlock();
+      this.addBaseLayer();
       await this.startGame();
     }, resetDuration);
   }
 
   private async endGame(): Promise<void> {
-    const score = this.blocks.length - 1;
+    const score = Math.floor((this.blocks.length - 3) / 3); // Count complete layers
     const data = await this.devvit.gameOver(score);
 
     if (this.userAllTimeStats && score > this.userAllTimeStats.score) {
-      this.gameOverText.innerHTML = `New high score! ${score} fries stacked!`;
+      this.gameOverText.innerHTML = `New high score! ${score} layers built!`;
     } else {
-      this.gameOverText.innerHTML = `Game Over! You stacked ${score} fries!`;
+      this.gameOverText.innerHTML = `Game Over! You built ${score} layers!`;
     }
     
     this.userAllTimeStats = data.userAllTimeStats;
@@ -256,7 +257,12 @@ export class Game {
     if (this.state !== 'playing') return;
 
     const currentBlock = this.blocks[this.blocks.length - 1]!;
-    const targetBlock = this.blocks[this.blocks.length - 2]!;
+    const currentLevel = this.getCurrentLevel();
+    const baseLayer = this.getBaseLayerForLevel(currentLevel);
+    
+    if (baseLayer.length === 0) return;
+
+    const targetBlock = baseLayer[0]!;
 
     // Check if block is within valid placement range
     const xDiff = Math.abs(currentBlock.x - targetBlock.x);
@@ -277,21 +283,147 @@ export class Game {
     // Stop the block movement
     currentBlock.direction.set(0, 0, 0);
 
-    this.scoreContainer.innerHTML = String(this.blocks.length - 1);
-    
     if (result.state === 'chopped') {
       this.addChoppedBlock(result.position!, result.scale!, currentBlock);
     }
 
-    this.addBlock(currentBlock);
+    // Check if we completed a layer (3 blocks)
+    const blocksInCurrentLayer = this.getBlocksInLevel(currentLevel);
+    if (blocksInCurrentLayer.length >= 3) {
+      this.addNewLayer();
+    } else {
+      this.addBlockToCurrentLayer();
+    }
+
+    this.updateScore();
   }
 
-  private addBaseBlock(): void {
+  private getCurrentLevel(): number {
+    return Math.floor((this.blocks.length - 3) / 3);
+  }
+
+  private getBaseLayerForLevel(level: number): Block[] {
+    if (level === 0) {
+      return this.blocks.slice(0, 3); // Base layer
+    }
+    const startIndex = 3 + (level - 1) * 3;
+    return this.blocks.slice(startIndex, startIndex + 3);
+  }
+
+  private getBlocksInLevel(level: number): Block[] {
+    if (level === 0) {
+      return this.blocks.slice(0, 3);
+    }
+    const startIndex = 3 + level * 3;
+    return this.blocks.slice(startIndex);
+  }
+
+  private addBaseLayer(): void {
     const { scale, color } = this.config.block.base;
-    const block = new Block(new Vector3(scale.x, scale.y, scale.z));
+    
+    // Create 3 blocks for the base layer (horizontal along X-axis)
+    for (let i = 0; i < 3; i++) {
+      const block = new Block(new Vector3(scale.x, scale.y, scale.z));
+      block.position.set(
+        (i - 1) * (scale.x + 0.1), // Space blocks slightly apart
+        0,
+        0
+      );
+      block.rotation.set(0, 0, 0); // Horizontal along X-axis
+      block.color = parseInt(color, 16);
+      
+      this.stage.add(block.getMesh());
+      this.blocks.push(block);
+    }
+  }
+
+  private addNewLayer(): void {
+    const currentLevel = this.getCurrentLevel() + 1;
+    const isEvenLevel = currentLevel % 2 === 0;
+    const baseLayer = this.getBaseLayerForLevel(currentLevel - 1);
+    
+    if (baseLayer.length === 0) return;
+
+    const baseBlock = baseLayer[1]!; // Use middle block as reference
+    const block = this.pool.get();
+    
+    block.scale.copy(baseBlock.scale);
+    block.position.set(
+      baseBlock.x,
+      baseBlock.y + baseBlock.height + 0.05,
+      baseBlock.z
+    );
+    
+    // JENGA PATTERN: Alternate orientations
+    if (isEvenLevel) {
+      block.rotation.set(0, 0, 0); // Horizontal along X-axis
+      block.direction.set(Math.random() > 0.5 ? 1 : -1, 0, 0); // Move along X
+    } else {
+      block.rotation.set(0, Math.PI / 2, 0); // Horizontal along Z-axis  
+      block.direction.set(0, 0, Math.random() > 0.5 ? 1 : -1); // Move along Z
+    }
+    
+    block.color = this.getNextBlockColor();
+    block.applyEffect(this.getRandomEffect());
+
     this.stage.add(block.getMesh());
     this.blocks.push(block);
-    block.color = parseInt(color, 16);
+    
+    // Start the block moving from a distance
+    block.moveScalar(this.config.gameplay.distance);
+    this.stage.setCamera(block.y);
+  }
+
+  private addBlockToCurrentLayer(): void {
+    const currentLevel = this.getCurrentLevel();
+    const blocksInLevel = this.getBlocksInLevel(currentLevel);
+    const isEvenLevel = currentLevel % 2 === 0;
+    
+    if (blocksInLevel.length >= 3) return;
+
+    const referenceBlock = blocksInLevel[0]!;
+    const block = this.pool.get();
+    
+    block.scale.copy(referenceBlock.scale);
+    
+    // Position next to existing blocks in the layer
+    if (isEvenLevel) {
+      // Horizontal layer along X-axis
+      block.position.set(
+        referenceBlock.x + (blocksInLevel.length) * (referenceBlock.width + 0.1),
+        referenceBlock.y,
+        referenceBlock.z
+      );
+      block.rotation.set(0, 0, 0);
+      block.direction.set(Math.random() > 0.5 ? 1 : -1, 0, 0);
+    } else {
+      // Horizontal layer along Z-axis
+      block.position.set(
+        referenceBlock.x,
+        referenceBlock.y,
+        referenceBlock.z + (blocksInLevel.length) * (referenceBlock.depth + 0.1)
+      );
+      block.rotation.set(0, Math.PI / 2, 0);
+      block.direction.set(0, 0, Math.random() > 0.5 ? 1 : -1);
+    }
+    
+    block.color = this.getNextBlockColor();
+    block.applyEffect(this.getRandomEffect());
+
+    this.stage.add(block.getMesh());
+    this.blocks.push(block);
+    
+    // Start the block moving from a distance
+    block.moveScalar(this.config.gameplay.distance);
+  }
+
+  private updateScore(): void {
+    const completeLayers = Math.floor((this.blocks.length - 3) / 3);
+    this.scoreContainer.innerHTML = String(completeLayers);
+    
+    if (this.blocks.length >= this.config.instructions.height + 3) {
+      this.instructions.classList.add('hide');
+    }
   }
 
   private getRandomEffect(): BlockEffect {
@@ -309,43 +441,6 @@ export class Game {
     }
     
     return effects[Math.floor(Math.random() * (effects.length - 1))]!;
-  }
-
-  private addBlock(targetBlock: Block): void {
-    const block = this.pool.get();
-    const level = this.blocks.length;
-    const isAlternating = level % 2 === 0;
-
-    block.scale.copy(targetBlock.scale);
-    block.position.set(
-      targetBlock.x,
-      targetBlock.y + targetBlock.height,
-      targetBlock.z
-    );
-    
-    // JENGA PATTERN: Rotate alternate layers by 90 degrees
-    if (isAlternating) {
-      block.rotation.set(0, 0, 0); // Horizontal along X-axis
-      block.direction.set(Math.random() > 0.5 ? 1 : -1, 0, 0); // Move along X
-    } else {
-      block.rotation.set(0, Math.PI / 2, 0); // Horizontal along Z-axis  
-      block.direction.set(0, 0, Math.random() > 0.5 ? 1 : -1); // Move along Z
-    }
-    
-    block.color = this.getNextBlockColor();
-    block.applyEffect(this.getRandomEffect());
-
-    this.stage.add(block.getMesh());
-    this.blocks.push(block);
-    
-    // Start the block moving from a distance
-    block.moveScalar(this.config.gameplay.distance);
-    this.stage.setCamera(block.y);
-
-    this.scoreContainer.innerHTML = String(this.blocks.length - 1);
-    if (this.blocks.length >= this.config.instructions.height) {
-      this.instructions.classList.add('hide');
-    }
   }
 
   private addChoppedBlock(position: Vector3, scale: Vector3, sourceBlock: Block): void {
@@ -388,7 +483,7 @@ export class Game {
     const currentBlock = this.blocks[this.blocks.length - 1];
     if (!currentBlock) return;
 
-    const speed = 0.12 + Math.min(0.0006 * this.blocks.length, 0.06);
+    const speed = 0.08 + Math.min(0.0004 * this.blocks.length, 0.04);
     currentBlock.moveScalar(speed * deltaTime);
 
     this.reverseDirection();
@@ -398,9 +493,11 @@ export class Game {
     const currentBlock = this.blocks[this.blocks.length - 1];
     if (!currentBlock) return;
 
-    const targetBlock = this.blocks[this.blocks.length - 2];
-    if (!targetBlock) return;
+    const currentLevel = this.getCurrentLevel();
+    const baseLayer = this.getBaseLayerForLevel(currentLevel);
+    if (baseLayer.length === 0) return;
 
+    const targetBlock = baseLayer[0]!;
     const { distance } = this.config.gameplay;
 
     // Check movement bounds based on current direction
@@ -421,10 +518,10 @@ export class Game {
     const { base, range, intensity } = this.config.block.colors;
     const offset = this.blocks.length + this.colorOffset;
     
-    // Ensure we stay in golden/brown French fry colors
-    const r = Math.max(200, Math.min(255, base.r + range.r * Math.sin(intensity.r * offset)));
-    const g = Math.max(150, Math.min(220, base.g + range.g * Math.sin(intensity.g * offset)));
-    const b = Math.max(0, Math.min(50, base.b + range.b * Math.sin(intensity.b * offset)));
+    // Wooden color variations
+    const r = Math.max(180, Math.min(255, base.r + range.r * Math.sin(intensity.r * offset)));
+    const g = Math.max(140, Math.min(200, base.g + range.g * Math.sin(intensity.g * offset)));
+    const b = Math.max(80, Math.min(140, base.b + range.b * Math.sin(intensity.b * offset)));
     
     return (Math.floor(r) << 16) + (Math.floor(g) << 8) + Math.floor(b);
   }

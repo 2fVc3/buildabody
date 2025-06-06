@@ -7,40 +7,40 @@ const getPostConfigKey = (postId: string) => `post_config:${postId}` as const;
 const defaultPostConfig: PostConfig = {
   'block': {
     'base': {
-      'color': '0xFFD700', // Golden color for fries
+      'color': '0xDEB887', // Burlywood color like wooden Jenga blocks
       'scale': {
-        'x': 8, // Wider for better Jenga visibility
-        'y': 1.5, // Height for Jenga-style fries
-        'z': 2.5, // Deeper for better Jenga visibility
+        'x': 4, // Jenga block width
+        'y': 1.2, // Jenga block height
+        'z': 1.2, // Jenga block depth
       },
     },
     'colors': {
       'base': {
-        'r': 255, // Golden red component
-        'g': 215, // Golden green component
-        'b': 0,   // Golden blue component
+        'r': 222, // Burlywood red component
+        'g': 184, // Burlywood green component
+        'b': 135, // Burlywood blue component
       },
       'range': {
-        'r': 30,  // Variation in red (towards orange/brown)
-        'g': 40,  // Variation in green
-        'b': 20,  // Small variation in blue
+        'r': 30,  // Variation towards brown
+        'g': 20,  // Variation in green
+        'b': 15,  // Variation in blue
       },
       'intensity': {
-        'r': 0.15,
-        'g': 0.2,
+        'r': 0.1,
+        'g': 0.15,
         'b': 0.1,
       },
     },
   },
   'gameplay': {
-    'distance': 12, // Increased movement range
+    'distance': 8, // Movement range
     'speed': {
-      'min': 6,
-      'max': 12,
-      'multiplier': 0.03,
+      'min': 4,
+      'max': 8,
+      'multiplier': 0.02,
     },
-    'accuracy': 0.4,
-    'effectProbability': 0.3,
+    'accuracy': 0.3,
+    'effectProbability': 0.2,
   },
   'instructions': {
     'height': 5,
@@ -48,35 +48,35 @@ const defaultPostConfig: PostConfig = {
   'camera': {
     'near': -100,
     'far': 1000,
-    'viewSize': 50, // Increased view size to see more of the tower
+    'viewSize': 25, // Good view of the Jenga tower
     'position': {
-      'x': 20, // Moved camera further back
-      'y': 20,
-      'z': 20,
+      'x': 12, // Angled view like the image
+      'y': 15,
+      'z': 12,
     },
     'lookAt': {
       'x': 0,
-      'y': 0,
+      'y': 3,
       'z': 0,
     },
-    'offset': 15, // Increased offset for better tower view
+    'offset': 8,
   },
   'background': {
-    'color': '0xF5D6BA', // Warm paper bag color
+    'color': '0xF5F5DC', // Beige background like wooden table
   },
   'light': {
     'directional': {
-      'color': '0xFFFAF0',
-      'intensity': 0.7,
+      'color': '0xFFFFFF',
+      'intensity': 0.8,
       'position': {
-        'x': 15,
-        'y': 25,
-        'z': 15,
+        'x': 10,
+        'y': 20,
+        'z': 10,
       },
     },
     'ambient': {
-      'color': '0xFFFAF0',
-      'intensity': 0.5,
+      'color': '0xFFFFFF',
+      'intensity': 0.4,
       'position': {
         'x': 0,
         'y': 0,
