@@ -17,8 +17,17 @@ import {
   TorusGeometry,
   Color,
   Fog,
+  SkyBox,
+  CubeTextureLoader,
+  PMREMGenerator,
+  ACESFilmicToneMapping,
+  Clock
 } from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
+import { Water } from './water';
+import { SkyShader } from './shaders/skyShader';
+import { GroundShader } from './shaders/groundShader';
+import { EnvironmentEffects } from './environmentEffects';
 
 export class Stage {
   private container: HTMLElement;
@@ -29,6 +38,13 @@ export class Stage {
   private sceneryObjects: Mesh[] = [];
   private currentDistance: number = 0;
   private lastSceneryUpdate: number = 0;
+  private clock: Clock;
+  
+  // Enhanced visual elements
+  private water!: Water;
+  private skyMesh!: Mesh;
+  private groundMesh!: Mesh;
+  private environmentEffects!: EnvironmentEffects;
 
   private config: PostConfig;
 
@@ -36,17 +52,40 @@ export class Stage {
     this.config = config;
     this.container = document.getElementById('game') as HTMLElement;
     this.scene = new Scene();
+    this.clock = new Clock();
 
     this.setupRenderer(devicePixelRatio);
     this.setupCamera();
     this.setupLights();
+    this.setupWater();
+    this.setupSky();
+    this.setupGround();
     this.setupEnvironment();
+    this.setupEnvironmentEffects();
     this.setupDynamicFog();
     
     this.originalCameraPosition = this.camera.position.clone();
   }
 
   public render(): void {
+    const time = this.clock.getElapsedTime();
+    
+    // Update water animation
+    this.water.update();
+    
+    // Update sky shader
+    if (this.skyMesh.material instanceof ShaderMaterial) {
+      this.skyMesh.material.uniforms.time.value = time;
+    }
+    
+    // Update ground shader
+    if (this.groundMesh.material instanceof ShaderMaterial) {
+      this.groundMesh.material.uniforms.time.value = time;
+    }
+    
+    // Update environment effects
+    this.environmentEffects.update(time);
+    
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -73,9 +112,14 @@ export class Stage {
     this.renderer = new WebGLRenderer({
       antialias: true,
       alpha: false,
+      powerPreference: "high-performance"
     });
-    this.renderer.setPixelRatio(devicePixelRatio);
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setClearColor(parseInt(this.config.background.skyColor, 16), 1);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.container.appendChild(this.renderer.domElement);
   }
 
@@ -89,13 +133,20 @@ export class Stage {
   }
 
   private setupLights(): void {
-    // Directional light
     const { color, intensity, position } = this.config.light.directional;
     const directionalLight = new DirectionalLight(parseInt(color, 16), intensity);
     directionalLight.position.set(position.x, position.y, position.z);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 500;
+    directionalLight.shadow.camera.left = -100;
+    directionalLight.shadow.camera.right = 100;
+    directionalLight.shadow.camera.top = 100;
+    directionalLight.shadow.camera.bottom = -100;
     this.add(directionalLight);
 
-    // Ambient light
     const ambientLight = new AmbientLight(
       parseInt(this.config.light.ambient.color, 16), 
       this.config.light.ambient.intensity
@@ -103,67 +154,154 @@ export class Stage {
     this.add(ambientLight);
   }
 
+  private setupWater(): void {
+    this.water = new Water();
+    this.add(this.water.getMesh());
+  }
+
+  private setupSky(): void {
+    const skyGeometry = new SphereGeometry(800, 32, 16);
+    const skyMaterial = SkyShader.createMaterial();
+    
+    this.skyMesh = new Mesh(skyGeometry, skyMaterial);
+    this.skyMesh.material.side = THREE.BackSide;
+    this.add(this.skyMesh);
+  }
+
+  private setupGround(): void {
+    const groundGeometry = new PlaneGeometry(1000, 1000, 128, 128);
+    const groundMaterial = GroundShader.createMaterial();
+    
+    this.groundMesh = new Mesh(groundGeometry, groundMaterial);
+    this.groundMesh.rotation.x = -Math.PI / 2;
+    this.groundMesh.position.y = 0;
+    this.groundMesh.receiveShadow = true;
+    this.add(this.groundMesh);
+  }
+
+  private setupEnvironmentEffects(): void {
+    this.environmentEffects = new EnvironmentEffects(this.scene);
+  }
+
   private setupDynamicFog(): void {
-    // Start with no fog, will be updated based on distance
     this.scene.fog = new Fog(0x87CEEB, 50, 200);
   }
 
   private setupEnvironment(): void {
-    // Ground plane - will change color based on distance
-    const groundGeometry = new PlaneGeometry(1000, 1000);
-    const groundMaterial = new MeshLambertMaterial({ 
-      color: parseInt(this.config.background.groundColor, 16) 
-    });
-    const ground = new Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
-    this.add(ground);
-
-    // Launch pad
     const padGeometry = new CylinderGeometry(2, 2, 0.2, 16);
-    const padMaterial = new MeshLambertMaterial({ color: 0x8B4513 });
+    const padMaterial = new MeshLambertMaterial({ 
+      color: 0x8B4513,
+      transparent: true,
+      opacity: 0.9
+    });
     const launchPad = new Mesh(padGeometry, padMaterial);
     launchPad.position.set(0, 0.1, 0);
+    launchPad.castShadow = true;
+    launchPad.receiveShadow = true;
     this.add(launchPad);
 
-    // Initial close scenery
-    this.createCloseScenery();
+    this.createEnhancedLilyPads();
+    this.createEnhancedRocks();
+    this.createWaterPlants();
   }
 
-  private createCloseScenery(): void {
-    // Lily pads around the launch area
-    for (let i = 0; i < 8; i++) {
-      const lilyPadGeometry = new CylinderGeometry(1, 1, 0.1, 8);
-      const lilyPadMaterial = new MeshLambertMaterial({ color: 0x228B22 });
+  private createEnhancedLilyPads(): void {
+    for (let i = 0; i < 12; i++) {
+      const lilyPadGeometry = new CylinderGeometry(1.2, 1, 0.1, 8);
+      const lilyPadMaterial = new MeshLambertMaterial({ 
+        color: new Color().setHSL(0.3, 0.6, 0.4),
+        transparent: true,
+        opacity: 0.8
+      });
       const lilyPad = new Mesh(lilyPadGeometry, lilyPadMaterial);
       
-      const angle = (i / 8) * Math.PI * 2;
-      const distance = 15 + Math.random() * 10;
+      const angle = (i / 12) * Math.PI * 2;
+      const distance = 15 + Math.random() * 15;
       lilyPad.position.set(
         Math.cos(angle) * distance,
         0.05,
         Math.sin(angle) * distance
       );
+      lilyPad.rotation.y = Math.random() * Math.PI * 2;
+      lilyPad.castShadow = true;
+      lilyPad.receiveShadow = true;
       this.add(lilyPad);
-    }
-
-    // Some normal rocks near spawn
-    for (let i = 0; i < 12; i++) {
-      const rockGeometry = new BoxGeometry(
-        0.5 + Math.random() * 1,
-        0.3 + Math.random() * 0.5,
-        0.5 + Math.random() * 1
-      );
-      const rockMaterial = new MeshLambertMaterial({ color: 0x696969 });
-      const rock = new Mesh(rockGeometry, rockMaterial);
       
-      rock.position.set(
-        (Math.random() - 0.5) * 40,
-        0.2,
-        (Math.random() - 0.5) * 40
+      if (Math.random() < 0.4) {
+        const flowerGeometry = new ConeGeometry(0.3, 0.5, 6);
+        const flowerMaterial = new MeshLambertMaterial({ 
+          color: new Color().setHSL(Math.random() * 0.1 + 0.9, 0.8, 0.8)
+        });
+        const flower = new Mesh(flowerGeometry, flowerMaterial);
+        flower.position.copy(lilyPad.position);
+        flower.position.y += 0.3;
+        flower.castShadow = true;
+        this.add(flower);
+      }
+    }
+  }
+
+  private createEnhancedRocks(): void {
+    for (let i = 0; i < 20; i++) {
+      const rockSize = 0.3 + Math.random() * 1.2;
+      const rockGeometry = new BoxGeometry(
+        rockSize,
+        rockSize * 0.6,
+        rockSize * 0.8
       );
-      rock.rotation.y = Math.random() * Math.PI * 2;
+      
+      const rockHue = 0.1 + Math.random() * 0.1;
+      const rockMaterial = new MeshLambertMaterial({ 
+        color: new Color().setHSL(rockHue, 0.2, 0.3 + Math.random() * 0.2)
+      });
+      
+      const rock = new Mesh(rockGeometry, rockMaterial);
+      rock.position.set(
+        (Math.random() - 0.5) * 60,
+        rockSize * 0.3,
+        (Math.random() - 0.5) * 60
+      );
+      rock.rotation.set(
+        (Math.random() - 0.5) * 0.4,
+        Math.random() * Math.PI * 2,
+        (Math.random() - 0.5) * 0.4
+      );
+      rock.castShadow = true;
+      rock.receiveShadow = true;
       this.add(rock);
+    }
+  }
+
+  private createWaterPlants(): void {
+    for (let i = 0; i < 15; i++) {
+      const stemGeometry = new CylinderGeometry(0.05, 0.08, 2 + Math.random() * 2, 6);
+      const stemMaterial = new MeshLambertMaterial({ 
+        color: new Color().setHSL(0.25, 0.7, 0.3)
+      });
+      const stem = new Mesh(stemGeometry, stemMaterial);
+      
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 8 + Math.random() * 25;
+      stem.position.set(
+        Math.cos(angle) * distance,
+        1,
+        Math.sin(angle) * distance
+      );
+      stem.rotation.z = (Math.random() - 0.5) * 0.3;
+      stem.castShadow = true;
+      this.add(stem);
+      
+      if (Math.random() < 0.6) {
+        const cattailGeometry = new CylinderGeometry(0.15, 0.1, 0.8, 8);
+        const cattailMaterial = new MeshLambertMaterial({ 
+          color: new Color().setHSL(0.08, 0.6, 0.4)
+        });
+        const cattail = new Mesh(cattailGeometry, cattailMaterial);
+        cattail.position.copy(stem.position);
+        cattail.position.y += 1.5;
+        cattail.castShadow = true;
+        this.add(cattail);
+      }
     }
   }
 
@@ -179,59 +317,77 @@ export class Stage {
       .easing(Easing.Linear.None)
       .start();
 
-    // Update distance and scenery
     const distance = Math.sqrt(frogPosition.x ** 2 + frogPosition.z ** 2);
     this.updateSceneryBasedOnDistance(distance, frogPosition);
+    
+    this.water.setMousePosition(
+      (frogPosition.x / 100) * 0.5 + 0.5,
+      (frogPosition.z / 100) * 0.5 + 0.5
+    );
+    
+    this.environmentEffects.createDistanceBasedEffects(distance, frogPosition);
   }
 
   private updateSceneryBasedOnDistance(distance: number, frogPosition: Vector3): void {
     this.currentDistance = distance;
     
-    // Update scenery every 20 units to avoid performance issues
     if (distance - this.lastSceneryUpdate > 20) {
       this.createDistanceBasedScenery(distance, frogPosition);
       this.lastSceneryUpdate = distance;
     }
 
-    // Update environment colors and effects
     this.updateEnvironmentEffects(distance);
   }
 
   private updateEnvironmentEffects(distance: number): void {
-    // Change sky color based on distance - gets more surreal
     let skyColor: Color;
     let fogColor: Color;
+    let waterColor: Color;
     
     if (distance < 50) {
-      // Normal sky
-      skyColor = new Color(0x87CEEB); // Sky blue
+      skyColor = new Color(0x87CEEB);
       fogColor = new Color(0x87CEEB);
+      waterColor = new Color(0x006994);
+      this.water.setWaveHeight(1.0);
+      this.water.setWaveSpeed(1.0);
     } else if (distance < 100) {
-      // Sunset colors
-      skyColor = new Color(0xFF6B6B); // Coral
+      skyColor = new Color(0xFF6B6B);
       fogColor = new Color(0xFF6B6B);
+      waterColor = new Color(0x8B0000);
+      this.water.setWaveHeight(1.5);
+      this.water.setWaveSpeed(1.2);
     } else if (distance < 200) {
-      // Purple twilight
-      skyColor = new Color(0x9370DB); // Medium purple
+      skyColor = new Color(0x9370DB);
       fogColor = new Color(0x9370DB);
+      waterColor = new Color(0x4B0082);
+      this.water.setWaveHeight(2.0);
+      this.water.setWaveSpeed(1.5);
     } else if (distance < 300) {
-      // Green alien world
-      skyColor = new Color(0x32CD32); // Lime green
+      skyColor = new Color(0x32CD32);
       fogColor = new Color(0x32CD32);
+      waterColor = new Color(0x006400);
+      this.water.setWaveHeight(2.5);
+      this.water.setWaveSpeed(2.0);
     } else if (distance < 500) {
-      // Pink candy land
-      skyColor = new Color(0xFF69B4); // Hot pink
+      skyColor = new Color(0xFF69B4);
       fogColor = new Color(0xFF69B4);
+      waterColor = new Color(0xFF1493);
+      this.water.setWaveHeight(3.0);
+      this.water.setWaveSpeed(2.5);
     } else if (distance < 750) {
-      // Orange dream world
-      skyColor = new Color(0xFF4500); // Orange red
+      skyColor = new Color(0xFF4500);
       fogColor = new Color(0xFF4500);
+      waterColor = new Color(0xFF6347);
+      this.water.setWaveHeight(4.0);
+      this.water.setWaveSpeed(3.0);
     } else {
-      // Rainbow chaos - cycling colors
       const time = Date.now() * 0.001;
       const hue = (time * 0.1) % 1;
       skyColor = new Color().setHSL(hue, 0.8, 0.6);
       fogColor = new Color().setHSL(hue, 0.8, 0.4);
+      waterColor = new Color().setHSL(hue, 0.9, 0.3);
+      this.water.setWaveHeight(5.0 + Math.sin(time) * 2.0);
+      this.water.setWaveSpeed(4.0 + Math.cos(time) * 1.0);
     }
 
     this.renderer.setClearColor(skyColor);
@@ -240,10 +396,16 @@ export class Stage {
       (this.scene.fog as Fog).near = Math.max(20, 100 - distance * 0.1);
       (this.scene.fog as Fog).far = Math.max(50, 200 - distance * 0.2);
     }
+    
+    this.water.setWaterColor(waterColor);
+    
+    if (this.skyMesh.material instanceof ShaderMaterial) {
+      this.skyMesh.material.uniforms.skyColor.value = skyColor;
+      this.skyMesh.material.uniforms.horizonColor.value = fogColor;
+    }
   }
 
   private createDistanceBasedScenery(distance: number, frogPosition: Vector3): void {
-    // Clean up old scenery that's too far away
     this.cleanupDistantScenery(frogPosition);
 
     if (distance < 50) {
@@ -264,10 +426,11 @@ export class Stage {
   }
 
   private createNormalScenery(frogPosition: Vector3): void {
-    // Normal trees and bushes
     for (let i = 0; i < 3; i++) {
       const treeGeometry = new CylinderGeometry(0.5, 1, 4, 8);
-      const treeMaterial = new MeshLambertMaterial({ color: 0x8B4513 });
+      const treeMaterial = new MeshLambertMaterial({ 
+        color: new Color().setHSL(0.08, 0.6, 0.3)
+      });
       const tree = new Mesh(treeGeometry, treeMaterial);
       
       tree.position.set(
@@ -275,24 +438,38 @@ export class Stage {
         2,
         frogPosition.z + (Math.random() - 0.5) * 60
       );
+      tree.castShadow = true;
+      tree.receiveShadow = true;
       
       this.add(tree);
       this.sceneryObjects.push(tree);
+      
+      const crownGeometry = new SphereGeometry(2, 12, 8);
+      const crownMaterial = new MeshLambertMaterial({ 
+        color: new Color().setHSL(0.25, 0.7, 0.4)
+      });
+      const crown = new Mesh(crownGeometry, crownMaterial);
+      crown.position.copy(tree.position);
+      crown.position.y += 3;
+      crown.castShadow = true;
+      this.add(crown);
+      this.sceneryObjects.push(crown);
     }
   }
 
   private createWeirdScenery(frogPosition: Vector3): void {
-    // Floating cubes and weird shapes
     for (let i = 0; i < 4; i++) {
       const weirdGeometry = new BoxGeometry(2, 2, 2);
       const weirdMaterial = new MeshLambertMaterial({ 
-        color: Math.random() * 0xFFFFFF 
+        color: new Color().setHSL(Math.random(), 0.8, 0.6),
+        transparent: true,
+        opacity: 0.8
       });
       const weirdCube = new Mesh(weirdGeometry, weirdMaterial);
       
       weirdCube.position.set(
         frogPosition.x + (Math.random() - 0.5) * 80,
-        3 + Math.random() * 5, // Floating
+        3 + Math.random() * 5,
         frogPosition.z + (Math.random() - 0.5) * 80
       );
       
@@ -302,21 +479,29 @@ export class Stage {
         Math.random() * Math.PI
       );
       
+      weirdCube.castShadow = true;
       this.add(weirdCube);
       this.sceneryObjects.push(weirdCube);
       
-      // Add floating animation
       new Tween(weirdCube.position)
         .to({ y: weirdCube.position.y + 2 }, 2000)
         .easing(Easing.Sinusoidal.InOut)
         .yoyo(true)
         .repeat(Infinity)
         .start();
+        
+      new Tween(weirdCube.rotation)
+        .to({ 
+          x: weirdCube.rotation.x + Math.PI * 2,
+          y: weirdCube.rotation.y + Math.PI * 2,
+          z: weirdCube.rotation.z + Math.PI * 2
+        }, 4000)
+        .repeat(Infinity)
+        .start();
     }
   }
 
   private createSurrealScenery(frogPosition: Vector3): void {
-    // Giant mushrooms and impossible structures
     for (let i = 0; i < 3; i++) {
       const stemGeometry = new CylinderGeometry(1, 1.5, 6, 8);
       const stemMaterial = new MeshLambertMaterial({ color: 0xF5DEB3 });
@@ -324,7 +509,9 @@ export class Stage {
       
       const capGeometry = new SphereGeometry(4, 16, 8);
       const capMaterial = new MeshLambertMaterial({ 
-        color: [0xFF0000, 0xFF69B4, 0x9370DB][i % 3] 
+        color: [0xFF0000, 0xFF69B4, 0x9370DB][i % 3],
+        transparent: true,
+        opacity: 0.9
       });
       const cap = new Mesh(capGeometry, capMaterial);
       
@@ -336,7 +523,12 @@ export class Stage {
       
       cap.position.copy(stem.position);
       cap.position.y += 6;
-      cap.scale.y = 0.5; // Flatten the cap
+      cap.scale.y = 0.5;
+      
+      stem.castShadow = true;
+      stem.receiveShadow = true;
+      cap.castShadow = true;
+      cap.receiveShadow = true;
       
       this.add(stem);
       this.add(cap);
@@ -345,13 +537,13 @@ export class Stage {
   }
 
   private createAlienScenery(frogPosition: Vector3): void {
-    // Crystalline structures and alien plants
     for (let i = 0; i < 5; i++) {
       const crystalGeometry = new ConeGeometry(1, 8, 6);
       const crystalMaterial = new MeshLambertMaterial({ 
         color: 0x00FFFF,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.8,
+        emissive: new Color(0x004444)
       });
       const crystal = new Mesh(crystalGeometry, crystalMaterial);
       
@@ -362,17 +554,14 @@ export class Stage {
       );
       
       crystal.rotation.z = (Math.random() - 0.5) * Math.PI * 0.5;
+      crystal.castShadow = true;
       
       this.add(crystal);
       this.sceneryObjects.push(crystal);
-      
-      // Glowing effect
-      crystalMaterial.emissive.setHex(0x004444);
     }
   }
 
   private createCandyLandScenery(frogPosition: Vector3): void {
-    // Giant lollipops and candy structures
     for (let i = 0; i < 4; i++) {
       const stickGeometry = new CylinderGeometry(0.2, 0.2, 8, 8);
       const stickMaterial = new MeshLambertMaterial({ color: 0xFFFFFF });
@@ -393,11 +582,13 @@ export class Stage {
       candy.position.copy(stick.position);
       candy.position.y += 6;
       
+      stick.castShadow = true;
+      candy.castShadow = true;
+      
       this.add(stick);
       this.add(candy);
       this.sceneryObjects.push(stick, candy);
       
-      // Spinning candy
       new Tween(candy.rotation)
         .to({ y: Math.PI * 2 }, 3000)
         .repeat(Infinity)
@@ -406,7 +597,6 @@ export class Stage {
   }
 
   private createDreamWorldScenery(frogPosition: Vector3): void {
-    // Floating islands and impossible geometry
     for (let i = 0; i < 3; i++) {
       const islandGeometry = new SphereGeometry(6, 16, 8);
       const islandMaterial = new MeshLambertMaterial({ color: 0x8FBC8F });
@@ -418,12 +608,12 @@ export class Stage {
         frogPosition.z + (Math.random() - 0.5) * 160
       );
       
-      island.scale.y = 0.3; // Flatten to make it island-like
+      island.scale.y = 0.3;
+      island.castShadow = true;
       
       this.add(island);
       this.sceneryObjects.push(island);
       
-      // Add some trees on the island
       for (let j = 0; j < 3; j++) {
         const treeGeometry = new ConeGeometry(1, 4, 8);
         const treeMaterial = new MeshLambertMaterial({ color: 0x228B22 });
@@ -435,11 +625,11 @@ export class Stage {
           island.position.z + (Math.random() - 0.5) * 8
         );
         
+        tree.castShadow = true;
         this.add(tree);
         this.sceneryObjects.push(tree);
       }
       
-      // Floating animation
       new Tween(island.position)
         .to({ y: island.position.y + 3 }, 4000)
         .easing(Easing.Sinusoidal.InOut)
@@ -450,7 +640,6 @@ export class Stage {
   }
 
   private createChaosRealmScenery(frogPosition: Vector3): void {
-    // Complete madness - everything is possible
     for (let i = 0; i < 6; i++) {
       const geometries = [
         new TorusGeometry(3, 1, 8, 16),
@@ -462,9 +651,10 @@ export class Stage {
       
       const geometry = geometries[Math.floor(Math.random() * geometries.length)]!;
       const material = new MeshLambertMaterial({ 
-        color: Math.random() * 0xFFFFFF,
+        color: new Color().setHSL(Math.random(), 0.8, 0.6),
         transparent: true,
-        opacity: 0.7 + Math.random() * 0.3
+        opacity: 0.7 + Math.random() * 0.3,
+        emissive: new Color().setHSL(Math.random(), 0.3, 0.2)
       });
       
       const chaosObject = new Mesh(geometry, material);
@@ -482,20 +672,11 @@ export class Stage {
       );
       
       chaosObject.scale.setScalar(0.5 + Math.random() * 2);
+      chaosObject.castShadow = true;
       
       this.add(chaosObject);
       this.sceneryObjects.push(chaosObject);
       
-      // Rainbow color cycling
-      const startTime = Date.now();
-      const colorInterval = setInterval(() => {
-        const time = (Date.now() - startTime) * 0.001;
-        const hue = (time * 0.5 + i * 0.1) % 1;
-        material.color.setHSL(hue, 0.8, 0.6);
-        material.emissive.setHSL(hue, 0.3, 0.2);
-      }, 100);
-      
-      // Chaotic movement
       new Tween(chaosObject.position)
         .to({
           x: chaosObject.position.x + (Math.random() - 0.5) * 40,
@@ -507,7 +688,6 @@ export class Stage {
         .repeat(Infinity)
         .start();
       
-      // Chaotic rotation
       new Tween(chaosObject.rotation)
         .to({
           x: chaosObject.rotation.x + Math.PI * 4,
@@ -516,16 +696,10 @@ export class Stage {
         }, 5000 + Math.random() * 3000)
         .repeat(Infinity)
         .start();
-      
-      // Clean up interval when object is removed
-      setTimeout(() => {
-        clearInterval(colorInterval);
-      }, 30000);
     }
   }
 
   private cleanupDistantScenery(frogPosition: Vector3): void {
-    // Remove scenery objects that are too far away to improve performance
     this.sceneryObjects = this.sceneryObjects.filter(obj => {
       const distance = obj.position.distanceTo(frogPosition);
       if (distance > 300) {
@@ -542,16 +716,18 @@ export class Stage {
       .easing(Easing.Cubic.Out)
       .start();
     
-    // Reset scenery tracking
     this.currentDistance = 0;
     this.lastSceneryUpdate = 0;
     
-    // Reset environment to normal
     this.renderer.setClearColor(parseInt(this.config.background.skyColor, 16));
     if (this.scene.fog) {
       (this.scene.fog as Fog).color = new Color(0x87CEEB);
       (this.scene.fog as Fog).near = 50;
       (this.scene.fog as Fog).far = 200;
     }
+    
+    this.water.setWaterColor(new Color(0x006994));
+    this.water.setWaveHeight(1.0);
+    this.water.setWaveSpeed(1.0);
   }
 }
