@@ -20,13 +20,13 @@ import {
   Clock,
   ShaderMaterial,
   PCFSoftShadowMap,
-  ACESFilmicToneMapping
+  ACESFilmicToneMapping,
+  MeshPhysicalMaterial,
+  BackSide
 } from 'three';
-import * as THREE from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
 import { Water } from './water';
-import { SkyShader } from './shaders/skyShader';
-import { GroundShader } from './shaders/groundShader';
+import { ProceduralTerrain } from './proceduralTerrain';
 import { EnvironmentEffects } from './environmentEffects';
 
 export class Stage {
@@ -42,8 +42,8 @@ export class Stage {
   
   // Enhanced visual elements
   private water!: Water;
+  private terrain!: ProceduralTerrain;
   private skyMesh!: Mesh;
-  private groundMesh!: Mesh;
   private environmentEffects!: EnvironmentEffects;
 
   private config: PostConfig;
@@ -57,9 +57,9 @@ export class Stage {
     this.setupRenderer(devicePixelRatio);
     this.setupCamera();
     this.setupLights();
+    this.setupTerrain();
     this.setupWater();
     this.setupSky();
-    this.setupGround();
     this.setupEnvironment();
     this.setupEnvironmentEffects();
     this.setupDynamicFog();
@@ -73,14 +73,12 @@ export class Stage {
     // Update water animation
     this.water.update();
     
+    // Update terrain
+    this.terrain.update(time);
+    
     // Update sky shader
     if (this.skyMesh.material instanceof ShaderMaterial) {
       this.skyMesh.material.uniforms.time.value = time;
-    }
-    
-    // Update ground shader
-    if (this.groundMesh.material instanceof ShaderMaterial) {
-      this.groundMesh.material.uniforms.time.value = time;
     }
     
     // Update environment effects
@@ -115,7 +113,7 @@ export class Stage {
       powerPreference: "high-performance"
     });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.setClearColor(parseInt(this.config.background.skyColor, 16), 1);
+    this.renderer.setClearColor(0x87CEEB, 1);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFSoftShadowMap;
     this.renderer.toneMapping = ACESFilmicToneMapping;
@@ -154,6 +152,11 @@ export class Stage {
     this.add(ambientLight);
   }
 
+  private setupTerrain(): void {
+    this.terrain = new ProceduralTerrain();
+    this.add(this.terrain.getMesh());
+  }
+
   private setupWater(): void {
     this.water = new Water();
     this.add(this.water.getMesh());
@@ -161,22 +164,85 @@ export class Stage {
 
   private setupSky(): void {
     const skyGeometry = new SphereGeometry(800, 32, 16);
-    const skyMaterial = SkyShader.createMaterial();
+    const skyMaterial = new ShaderMaterial({
+      uniforms: {
+        time: { value: 0.0 },
+        sunPosition: { value: new Vector3(0, 1, 0) },
+        skyColor: { value: new Color(0x87CEEB) },
+        horizonColor: { value: new Color(0xFFE4B5) },
+        sunColor: { value: new Color(0xFFFFAA) },
+        cloudiness: { value: 0.3 }
+      },
+      vertexShader: `
+        varying vec3 vWorldPosition;
+        varying vec2 vUv;
+        
+        void main() {
+          vUv = uv;
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        uniform vec3 sunPosition;
+        uniform vec3 skyColor;
+        uniform vec3 horizonColor;
+        uniform vec3 sunColor;
+        uniform float cloudiness;
+        
+        varying vec3 vWorldPosition;
+        varying vec2 vUv;
+        
+        float noise(vec2 p) {
+          return sin(p.x * 10.0) * sin(p.y * 10.0);
+        }
+        
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amplitude = 0.5;
+          float frequency = 1.0;
+          
+          for(int i = 0; i < 4; i++) {
+            value += amplitude * noise(p * frequency);
+            amplitude *= 0.5;
+            frequency *= 2.0;
+          }
+          return value;
+        }
+        
+        void main() {
+          vec3 direction = normalize(vWorldPosition);
+          float elevation = direction.y;
+          
+          vec3 color = mix(horizonColor, skyColor, max(0.0, elevation));
+          
+          float sunDistance = distance(direction, normalize(sunPosition));
+          float sunIntensity = 1.0 - smoothstep(0.0, 0.1, sunDistance);
+          color = mix(color, sunColor, sunIntensity * 0.8);
+          
+          float sunGlow = 1.0 - smoothstep(0.0, 0.3, sunDistance);
+          color += sunColor * sunGlow * 0.3;
+          
+          vec2 cloudUv = direction.xz / (direction.y + 0.1) + time * 0.01;
+          float cloudNoise = fbm(cloudUv * 2.0 + time * 0.02);
+          cloudNoise = smoothstep(0.4, 0.8, cloudNoise);
+          
+          vec3 cloudColor = mix(vec3(1.0), vec3(0.8, 0.8, 0.9), elevation);
+          color = mix(color, cloudColor, cloudNoise * cloudiness);
+          
+          float scatter = pow(max(0.0, 1.0 - elevation), 2.0);
+          color = mix(color, horizonColor, scatter * 0.3);
+          
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `,
+      side: BackSide
+    });
     
     this.skyMesh = new Mesh(skyGeometry, skyMaterial);
-    this.skyMesh.material.side = THREE.BackSide;
     this.add(this.skyMesh);
-  }
-
-  private setupGround(): void {
-    const groundGeometry = new PlaneGeometry(1000, 1000, 128, 128);
-    const groundMaterial = GroundShader.createMaterial();
-    
-    this.groundMesh = new Mesh(groundGeometry, groundMaterial);
-    this.groundMesh.rotation.x = -Math.PI / 2;
-    this.groundMesh.position.y = 0;
-    this.groundMesh.receiveShadow = true;
-    this.add(this.groundMesh);
   }
 
   private setupEnvironmentEffects(): void {
@@ -188,6 +254,7 @@ export class Stage {
   }
 
   private setupEnvironment(): void {
+    // Launch pad
     const padGeometry = new CylinderGeometry(2, 2, 0.2, 16);
     const padMaterial = new MeshLambertMaterial({ 
       color: 0x8B4513,
@@ -719,7 +786,7 @@ export class Stage {
     this.currentDistance = 0;
     this.lastSceneryUpdate = 0;
     
-    this.renderer.setClearColor(parseInt(this.config.background.skyColor, 16));
+    this.renderer.setClearColor(0x87CEEB);
     if (this.scene.fog) {
       (this.scene.fog as Fog).color = new Color(0x87CEEB);
       (this.scene.fog as Fog).near = 50;
