@@ -162,7 +162,8 @@ body {
   transform: translatey(0);
 }
 
-.aiming {
+/* Launch controls - Fixed positioning and visibility */
+.launch-controls {
   position: absolute;
   bottom: 20px;
   left: 50%;
@@ -173,9 +174,10 @@ body {
   gap: 15px;
   opacity: 0;
   transition: opacity 0.5s ease;
+  z-index: 200;
 }
 
-.aiming.aiming {
+.aiming .launch-controls {
   opacity: 1;
 }
 

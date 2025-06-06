@@ -50,6 +50,7 @@ export class Game {
   private power: number = 0;
   private angle: number = 0;
   private powerIncreasing: boolean = true;
+  private isCharging: boolean = false;
 
   private stats!: Stats;
   private config!: PostConfig;
@@ -125,16 +126,48 @@ export class Game {
       this.showQuote(event.detail.quote);
     });
 
-    // Power meter control
-    this.launchButton.addEventListener('mousedown', () => this.startPowerMeter());
-    this.launchButton.addEventListener('mouseup', () => this.launch());
+    // Power meter control - Mouse events
+    this.launchButton.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      this.startPowerMeter();
+    });
+    
+    this.launchButton.addEventListener('mouseup', (e) => {
+      e.preventDefault();
+      this.launch();
+    });
+
+    // Power meter control - Touch events
     this.launchButton.addEventListener('touchstart', (e) => {
       e.preventDefault();
       this.startPowerMeter();
     });
+    
     this.launchButton.addEventListener('touchend', (e) => {
       e.preventDefault();
       this.launch();
+    });
+
+    // Also handle mouse leave in case user drags off button
+    this.launchButton.addEventListener('mouseleave', (e) => {
+      if (this.isCharging) {
+        this.launch();
+      }
+    });
+
+    // Keyboard support
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && this.state === 'aiming' && !this.isCharging) {
+        e.preventDefault();
+        this.startPowerMeter();
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'Space' && this.isCharging) {
+        e.preventDefault();
+        this.launch();
+      }
     });
   }
 
@@ -151,7 +184,7 @@ export class Game {
   }
 
   private update(deltaTime: number): void {
-    if (this.state === 'aiming') {
+    if (this.state === 'aiming' && this.isCharging) {
       this.updatePowerMeter();
     } else if (this.state === 'flying') {
       this.updateFrogFlight(deltaTime);
@@ -160,13 +193,13 @@ export class Game {
 
   private updatePowerMeter(): void {
     if (this.powerIncreasing) {
-      this.power += 2;
+      this.power += 3;
       if (this.power >= 100) {
         this.power = 100;
         this.powerIncreasing = false;
       }
     } else {
-      this.power -= 2;
+      this.power -= 3;
       if (this.power <= 0) {
         this.power = 0;
         this.powerIncreasing = true;
@@ -272,19 +305,35 @@ export class Game {
   }
 
   private startPowerMeter(): void {
-    if (this.state !== 'aiming') return;
-    // Power meter is already updating in the update loop
+    if (this.state !== 'aiming' || this.isCharging) return;
+    
+    this.isCharging = true;
+    this.power = 0;
+    this.powerIncreasing = true;
+    
+    console.log('Started charging power meter');
   }
 
   private launch(): void {
-    if (this.state !== 'aiming') return;
+    if (this.state !== 'aiming' || !this.isCharging) return;
 
-    this.angle = (Math.random() - 0.5) * Math.PI * 0.5; // Random angle
-    this.currentFrog.launch(this.power, this.angle);
+    this.isCharging = false;
+    
+    // Use current power level
+    const launchPower = Math.max(10, this.power); // Minimum 10% power
+    this.angle = (Math.random() - 0.5) * Math.PI * 0.3; // Random angle
+    
+    console.log(`Launching frog with power: ${launchPower}%`);
+    
+    this.currentFrog.launch(launchPower, this.angle);
     this.launchCount++;
     
     this.updateState('flying');
-    this.showQuote(`🚀 LAUNCH! Power: ${this.power}%`);
+    this.showQuote(`🚀 LAUNCH! Power: ${launchPower}%`);
+    
+    // Reset power meter
+    this.power = 0;
+    this.powerMeter.style.width = '0%';
   }
 
   private handleFrogLanding(): void {
