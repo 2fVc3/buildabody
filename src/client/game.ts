@@ -28,9 +28,7 @@ export class Game {
   private blocks: Block[] = [];
 
   private pool!: Pool<Block>;
-
   private stats!: Stats;
-
   private colorOffset!: number;
 
   private userAllTimeStats: {
@@ -38,11 +36,9 @@ export class Game {
     rank: number;
   } | null = null;
 
-  /** Configuration data received from the init message */
   private config!: PostConfig;
 
   public async prepare(width: number, height: number, devicePixelRatio: number): Promise<void> {
-    // Fetch init data directly from the API endpoint
     let initData: InitMessage;
     try {
       const response = await fetch(`/api/init`);
@@ -50,30 +46,23 @@ export class Game {
         throw new Error(`API request failed with status ${response.status}`);
       }
       const data = await response.json();
-      // Basic type check
       if (data.type !== 'init') {
         throw new Error('Invalid init data received');
       }
       initData = data as InitMessage;
-      console.log('Received init data:', initData);
     } catch (error) {
       console.error('Failed to fetch init data:', error);
-      // Handle error appropriately - maybe show an error message in the UI
-      this.updateState('loading'); // Keep showing loading or show error state
-      // Optional: Display error to user
       const container = document.getElementById('container');
       if (container) {
-        container.innerHTML =
-          '<p style="color: red; padding: 1em;">Failed to load game configuration. Please try refreshing.</p>';
+        container.innerHTML = '<p style="color: red; padding: 1em;">Failed to load game configuration. Please try refreshing.</p>';
       }
-      return; // Stop preparation
+      return;
     }
 
     this.devvit = new Devvit({
       userId: initData.user.id,
     });
 
-    // Save per-post configuration for use throughout the game
     this.config = initData.postConfig;
     this.userAllTimeStats = initData.userAllTimeStats;
 
@@ -84,7 +73,6 @@ export class Game {
     this.gameOverText = document.getElementById('game-over-text') as HTMLElement;
 
     this.updateLeaderboard(initData.leaderboard);
-
     this.scoreContainer.innerHTML = '0';
 
     this.stage = new Stage(this.config, devicePixelRatio);
@@ -102,10 +90,8 @@ export class Game {
 
     this.ticker = new Ticker((currentTime: number, deltaTime: number) => {
       tweenjsUpdate(currentTime);
-
       this.update(deltaTime);
       this.render();
-
       this.stats?.update();
     });
 
@@ -126,6 +112,58 @@ export class Game {
 
   private update(deltaTime: number): void {
     this.moveCurrentBlock(deltaTime);
+    this.checkTowerStability();
+  }
+
+  private checkTowerStability(): void {
+    if (this.state !== 'playing') return;
+    
+    const currentBlock = this.blocks[this.blocks.length - 1];
+    if (!currentBlock) return;
+
+    // Check if block is too far from the stack
+    const baseBlock = this.blocks[this.blocks.length - 2];
+    if (!baseBlock) return;
+
+    const xDiff = Math.abs(currentBlock.x - baseBlock.x);
+    const zDiff = Math.abs(currentBlock.z - baseBlock.z);
+    
+    // If block is more than 90% off the base, tower falls
+    if (xDiff > baseBlock.width * 0.9 || zDiff > baseBlock.depth * 0.9) {
+      this.toppleTower();
+    }
+  }
+
+  private toppleTower(): void {
+    if (this.state !== 'playing') return;
+    
+    this.updateState('ended');
+    
+    // Animate blocks falling
+    const fallDelay = 50;
+    this.blocks.forEach((block, index) => {
+      new Tween(block.position)
+        .to({
+          x: block.x + (Math.random() - 0.5) * 15,
+          y: -30,
+          z: block.z + (Math.random() - 0.5) * 15
+        }, 2000)
+        .delay(index * fallDelay)
+        .easing(Easing.Bounce.Out)
+        .start();
+
+      new Tween(block.rotation)
+        .to({
+          x: Math.random() * Math.PI * 6,
+          y: Math.random() * Math.PI * 6,
+          z: Math.random() * Math.PI * 6
+        }, 2000)
+        .delay(index * fallDelay)
+        .easing(Easing.Quadratic.Out)
+        .start();
+    });
+
+    setTimeout(() => this.endGame(), 2500);
   }
 
   private render(): void {
@@ -163,80 +201,89 @@ export class Game {
   private async restartGame(): Promise<void> {
     this.updateState('resetting');
 
+    // Animate blocks falling away
     const length = this.blocks.length;
-    const duration = 200;
-    const delay = 20;
-
-    for (let i = length - 1; i > 0; i--) {
-      new Tween(this.blocks[i]!.scale)
-        .to({ x: 0, y: 0, z: 0 }, duration)
-        .delay((length - i - 1) * delay)
-        .easing(Easing.Cubic.In)
+    this.blocks.forEach((block, index) => {
+      new Tween(block.position)
+        .to({
+          x: block.x + (Math.random() - 0.5) * 25,
+          y: -40,
+          z: block.z + (Math.random() - 0.5) * 25
+        }, 1500)
+        .delay(index * 30)
+        .easing(Easing.Quadratic.In)
         .onComplete(() => {
-          this.stage.remove(this.blocks[i]!.getMesh());
-          this.pool.release(this.blocks[i]!);
+          this.stage.remove(block.getMesh());
+          this.pool.release(block);
         })
         .start();
 
-      new Tween(this.blocks[i]!.rotation)
-        .to({ y: 0.5 }, duration)
-        .delay((length - i - 1) * delay)
-        .easing(Easing.Cubic.In)
+      new Tween(block.rotation)
+        .to({
+          x: Math.random() * Math.PI * 4,
+          y: Math.random() * Math.PI * 4,
+          z: Math.random() * Math.PI * 4
+        }, 1500)
+        .delay(index * 30)
         .start();
-    }
+    });
 
-    const cameraMoveSpeed = duration * 2 + length * delay;
-    this.stage.resetCamera(cameraMoveSpeed);
-
-    const countdown = { value: length - 1 - 1 };
-    new Tween(countdown)
-      .to({ value: 0 }, cameraMoveSpeed)
-      .onUpdate(() => {
-        this.scoreContainer.innerHTML = String(Math.floor(countdown.value));
-      })
-      .start();
+    const resetDuration = length * 30 + 1500;
+    this.stage.resetCamera(resetDuration);
 
     setTimeout(async () => {
-      this.blocks = this.blocks.slice(0, 1);
+      this.blocks = [];
+      this.addBaseBlock();
       await this.startGame();
-    }, cameraMoveSpeed);
+    }, resetDuration);
   }
 
   private async endGame(): Promise<void> {
-    const score = Number(this.scoreContainer.innerText);
+    const score = this.blocks.length - 1;
     const data = await this.devvit.gameOver(score);
 
     if (this.userAllTimeStats && score > this.userAllTimeStats.score) {
-      this.gameOverText.innerHTML = `New high score!`;
+      this.gameOverText.innerHTML = `New high score! ${score} fries stacked!`;
     } else {
-      this.gameOverText.innerHTML = `Click or spacebar to start again`;
+      this.gameOverText.innerHTML = `Game Over! You stacked ${score} fries!`;
     }
-    // Set the new all time stats if they play a bunch
+    
     this.userAllTimeStats = data.userAllTimeStats;
     this.updateLeaderboard(data.leaderboard);
-
-    this.updateState('ended');
   }
 
   private async placeBlock(): Promise<void> {
-    const length = this.blocks.length;
-    const targetBlock = this.blocks[length - 2];
-    const currentBlock = this.blocks[length - 1];
+    if (this.state !== 'playing') return;
 
-    const result = currentBlock!.cut(targetBlock!, this.config.gameplay.accuracy);
+    const currentBlock = this.blocks[this.blocks.length - 1]!;
+    const targetBlock = this.blocks[this.blocks.length - 2]!;
 
-    if (result.state === 'missed') {
-      this.stage.remove(currentBlock!.getMesh());
-      await this.endGame();
+    // Check if block is within valid placement range
+    const xDiff = Math.abs(currentBlock.x - targetBlock.x);
+    const zDiff = Math.abs(currentBlock.z - targetBlock.z);
+    
+    if (xDiff > targetBlock.width * 0.9 || zDiff > targetBlock.depth * 0.9) {
+      this.toppleTower();
       return;
     }
 
-    this.scoreContainer.innerHTML = String(length - 1);
-    this.addBlock(currentBlock!);
+    const result = currentBlock.cut(targetBlock, this.config.gameplay.accuracy);
 
-    if (result.state === 'chopped') {
-      this.addChoppedBlock(result.position!, result.scale!, currentBlock!);
+    if (result.state === 'missed') {
+      this.toppleTower();
+      return;
     }
+
+    // Stop the block movement
+    currentBlock.direction.set(0, 0, 0);
+
+    this.scoreContainer.innerHTML = String(this.blocks.length - 1);
+    
+    if (result.state === 'chopped') {
+      this.addChoppedBlock(result.position!, result.scale!, currentBlock);
+    }
+
+    this.addBlock(currentBlock);
   }
 
   private addBaseBlock(): void {
@@ -266,34 +313,37 @@ export class Game {
 
   private addBlock(targetBlock: Block): void {
     const block = this.pool.get();
-
-    // Set rotation for Jenga-style alternating layers
     const level = this.blocks.length;
     const isAlternating = level % 2 === 0;
+
+    block.scale.copy(targetBlock.scale);
+    block.position.set(
+      targetBlock.x,
+      targetBlock.y + targetBlock.height,
+      targetBlock.z
+    );
     
-    block.rotation.set(0, isAlternating ? 0 : Math.PI / 2, Math.PI / 2);
-    block.scale.set(targetBlock.scale.x, targetBlock.scale.y, targetBlock.scale.z);
-    block.position.set(targetBlock.x, targetBlock.y + targetBlock.height, targetBlock.z);
-    block.direction.set(0, 0, 0);
+    // JENGA PATTERN: Rotate alternate layers by 90 degrees
+    if (isAlternating) {
+      block.rotation.set(0, 0, 0); // Horizontal along X-axis
+      block.direction.set(Math.random() > 0.5 ? 1 : -1, 0, 0); // Move along X
+    } else {
+      block.rotation.set(0, Math.PI / 2, 0); // Horizontal along Z-axis  
+      block.direction.set(0, 0, Math.random() > 0.5 ? 1 : -1); // Move along Z
+    }
+    
     block.color = this.getNextBlockColor();
-    
-    // Apply random magical effect
     block.applyEffect(this.getRandomEffect());
 
     this.stage.add(block.getMesh());
     this.blocks.push(block);
-
-    if (isAlternating) {
-      block.direction.x = Math.random() > 0.5 ? 1 : -1;
-    } else {
-      block.direction.z = Math.random() > 0.5 ? 1 : -1;
-    }
-
+    
+    // Start the block moving from a distance
     block.moveScalar(this.config.gameplay.distance);
     this.stage.setCamera(block.y);
 
-    this.scoreContainer.innerHTML = String(level);
-    if (level >= this.config.instructions.height) {
+    this.scoreContainer.innerHTML = String(this.blocks.length - 1);
+    if (this.blocks.length >= this.config.instructions.height) {
       this.instructions.classList.add('hide');
     }
   }
@@ -301,8 +351,8 @@ export class Game {
   private addChoppedBlock(position: Vector3, scale: Vector3, sourceBlock: Block): void {
     const block = this.pool.get();
 
-    block.rotation.set(0, 0, Math.PI / 2);
-    block.scale.set(scale.x, scale.y, scale.z);
+    block.rotation.copy(sourceBlock.rotation);
+    block.scale.copy(scale);
     block.position.copy(position);
     block.color = sourceBlock.color;
 
@@ -313,11 +363,11 @@ export class Game {
     new Tween(block.position)
       .to(
         {
-          x: block.x + dirX * 10,
-          y: block.y - 30,
-          z: block.z + dirZ * 10,
+          x: block.x + dirX * 15,
+          y: block.y - 40,
+          z: block.z + dirZ * 15,
         },
-        1000
+        1500
       )
       .easing(Easing.Quadratic.In)
       .onComplete(() => {
@@ -327,48 +377,43 @@ export class Game {
       .start();
 
     new Tween(block.rotation)
-      .to({ x: dirZ * 5, z: dirX * -5 }, 900)
-      .delay(50)
+      .to({ x: dirZ * 8, z: dirX * -8 }, 1200)
+      .delay(100)
       .start();
   }
 
   private moveCurrentBlock(deltaTime: number): void {
     if (this.state !== 'playing') return;
 
-    const length = this.blocks.length;
-    if (length < 2) return;
+    const currentBlock = this.blocks[this.blocks.length - 1];
+    if (!currentBlock) return;
 
-    const speed = 0.16 + Math.min(0.0008 * length, 0.08);
-    this.blocks[length - 1]!.moveScalar(speed * deltaTime);
+    const speed = 0.12 + Math.min(0.0006 * this.blocks.length, 0.06);
+    currentBlock.moveScalar(speed * deltaTime);
 
     this.reverseDirection();
   }
 
   private reverseDirection(): void {
-    const length = this.blocks.length;
-    if (length < 2) return;
+    const currentBlock = this.blocks[this.blocks.length - 1];
+    if (!currentBlock) return;
 
-    const targetBlock = this.blocks[length - 2];
-    const currentBlock = this.blocks[length - 1];
+    const targetBlock = this.blocks[this.blocks.length - 2];
+    if (!targetBlock) return;
 
     const { distance } = this.config.gameplay;
 
-    const diffX = currentBlock!.x - targetBlock!.x;
-    if (
-      (currentBlock!.direction.x === 1 && diffX > distance) ||
-      (currentBlock!.direction.x === -1 && diffX < -distance)
-    ) {
-      currentBlock!.direction.x *= -1;
-      return;
-    }
-
-    const diffZ = currentBlock!.z - targetBlock!.z;
-    if (
-      (currentBlock!.direction.z === 1 && diffZ > distance) ||
-      (currentBlock!.direction.z === -1 && diffZ < -distance)
-    ) {
-      currentBlock!.direction.z *= -1;
-      return;
+    // Check movement bounds based on current direction
+    if (Math.abs(currentBlock.direction.x) > 0) {
+      // Moving along X axis
+      if (Math.abs(currentBlock.x - targetBlock.x) > distance) {
+        currentBlock.direction.x *= -1;
+      }
+    } else if (Math.abs(currentBlock.direction.z) > 0) {
+      // Moving along Z axis
+      if (Math.abs(currentBlock.z - targetBlock.z) > distance) {
+        currentBlock.direction.z *= -1;
+      }
     }
   }
 
@@ -390,10 +435,7 @@ export class Game {
       score: number;
     }[]
   ) {
-    // Note: Instead of clearing it out we should produce attribute of username:score instead of replacing the whole thing
-    // that diff would take away the flash
     this.leaderboardList.innerHTML = '';
-
     leaderboard.forEach((leaderboardItem) => {
       const leaderboardItemElement = document.createElement('div');
       leaderboardItemElement.classList.add('leaderboard-item');

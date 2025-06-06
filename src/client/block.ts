@@ -1,4 +1,4 @@
-import { BoxGeometry, Euler, Mesh, MeshToonMaterial, Vector3, CylinderGeometry, Group } from 'three';
+import { BoxGeometry, Euler, Mesh, MeshToonMaterial, Vector3 } from 'three';
 import { BlockEffect } from '../shared/types/postConfig';
 
 type CutState = 'missed' | 'perfect' | 'chopped';
@@ -19,8 +19,8 @@ export class Block {
       metalness: 0.1,
     });
 
-    // Create a French fry shaped geometry - rounded cylinder for more realistic fry shape
-    const geometry = new CylinderGeometry(0.4, 0.4, 1, 8);
+    // Create French fry shaped geometry - rectangular but with better proportions
+    const geometry = new BoxGeometry(1, 1, 1);
     this.mesh = new Mesh(geometry, this.material);
 
     if (scale !== undefined) {
@@ -28,8 +28,8 @@ export class Block {
       this.originalScale = scale.clone();
     }
 
-    // Rotate to lay horizontally like a fry
-    this.mesh.rotation.set(0, 0, Math.PI / 2);
+    // Start with no rotation - we'll handle Jenga rotation in the game logic
+    this.mesh.rotation.set(0, 0, 0);
   }
 
   // prettier-ignore
@@ -97,23 +97,8 @@ export class Block {
       speed *= (1 - this.effect.magnitude);
     }
 
-    // Jenga-style movement
-    const level = Math.floor(this.y / (this.height + 0.1));
-    const isAlternating = level % 2 === 0;
-
-    if (isAlternating) {
-      this.position.set(
-        this.position.x + this.direction.x * speed,
-        this.position.y,
-        this.position.z
-      );
-    } else {
-      this.position.set(
-        this.position.x,
-        this.position.y,
-        this.position.z + this.direction.z * speed
-      );
-    }
+    // Move in the direction set by the game logic
+    this.position.add(this.direction.clone().multiplyScalar(speed));
   }
 
   public cut(
@@ -127,10 +112,11 @@ export class Block {
     const position = this.position.clone();
     const scale = this.scale.clone();
 
-    const level = Math.floor(this.y / (this.height + 0.1));
-    const isAlternating = level % 2 === 0;
+    // Determine which axis we're moving on based on rotation
+    const isRotated = Math.abs(this.rotation.y) > Math.PI / 4;
 
-    if (isAlternating) {
+    if (!isRotated) {
+      // Moving along X axis
       const overlap = targetBlock.width - Math.abs(this.x - targetBlock.x);
       if (overlap < 0) return { state: 'missed' };
 
@@ -145,6 +131,7 @@ export class Block {
       scale.x -= overlap;
       position.x = this.x + (scale.x + this.width) * (this.x < targetBlock.x ? -0.5 : 0.5);
     } else {
+      // Moving along Z axis
       const overlap = targetBlock.depth - Math.abs(this.z - targetBlock.z);
       if (overlap < 0) return { state: 'missed' };
 
