@@ -3,52 +3,116 @@ import { FrogPersonality, FrogEffect } from '../shared/types/postConfig';
 
 const FROG_QUOTES = {
   dramatic: [
-    "🎭 This leap shall be LEGENDARY!",
-    "🎪 Behold my magnificent trajectory!",
-    "🌟 I am the star of this pond!",
-    "🎬 This is my moment to shine!"
+    "🎭 MINION! Witness my theatrical magnificence!",
+    "🎪 Your pathetic launch skills pale before my artistry!",
+    "🌟 I am the STAR! You are merely my catapult operator!",
+    "🎬 This performance will be remembered for CENTURIES!"
   ],
   zen: [
-    "🧘 I am one with the wind...",
-    "☯️ The lily pad calls to me...",
-    "🌸 Inner peace through flight...",
-    "🕯️ Serenity in motion..."
+    "🧘 Your chaotic energy disturbs my inner peace, servant...",
+    "☯️ I shall meditate on forgiving your terrible aim...",
+    "🌸 The universe whispers that you need practice, minion...",
+    "🕯️ Find serenity in accepting your inadequacy..."
   ],
   chaotic: [
-    "🤪 WHEEEEE! CHAOS TIME!",
-    "🌪️ Random direction GO!",
-    "🎲 Let's see what happens!",
-    "💥 MAXIMUM MAYHEM!"
+    "🤪 WHEEE! Your incompetence makes this EXTRA random!",
+    "🌪️ I LOVE how unpredictable your failures are!",
+    "🎲 Let's see what chaos your bumbling creates!",
+    "💥 MAXIMUM MAYHEM! Thanks for the terrible aim!"
   ],
   sleepy: [
-    "😴 Zzz... oh, are we flying?",
-    "🛌 This better be worth waking up for...",
-    "💤 Can I nap mid-flight?",
-    "😪 Five more minutes..."
+    "😴 *yawn* Wake me when you learn to launch properly...",
+    "🛌 This better be worth interrupting my beauty sleep...",
+    "💤 Zzz... oh great, another amateur hour...",
+    "😪 Can't you see I'm trying to nap here, peasant?"
   ],
   confident: [
-    "💪 I've got this in the bag!",
-    "🏆 Watch and learn, peasants!",
-    "⭐ Perfect landing incoming!",
-    "🎯 Bullseye guaranteed!"
+    "💪 Obviously I'll succeed despite your incompetence!",
+    "🏆 Watch and learn from a SUPERIOR amphibian!",
+    "⭐ Perfect landing incoming! No thanks to you!",
+    "🎯 I could land blindfolded with you as my launcher!"
   ],
   anxious: [
-    "😰 What if I miss the pond?!",
-    "🙈 This seems really high...",
-    "😱 Did I remember to stretch?",
-    "🤞 Please don't let me faceplant..."
+    "😰 What if your terrible aim kills me?!",
+    "🙈 This seems really high... ARE YOU EVEN QUALIFIED?!",
+    "😱 Did you even READ the instruction manual?!",
+    "🤞 Please don't let your incompetence be my doom..."
   ],
   philosophical: [
-    "🤔 What is the meaning of flight?",
-    "📚 To leap is to live...",
-    "💭 Are we all just flying frogs?",
-    "🌌 The universe guides my path..."
+    "🤔 What is the meaning of being launched by a fool?",
+    "📚 To leap is to trust... unfortunately in YOU...",
+    "💭 Are we all just victims of incompetent humans?",
+    "🌌 The universe questions your launching credentials..."
   ],
   rebellious: [
-    "😤 I'll land where I want!",
-    "🚫 Rules are for other frogs!",
-    "⚡ Breaking physics since birth!",
-    "🔥 Can't contain this frog!"
+    "😤 I'll land where I want DESPITE your terrible aim!",
+    "🚫 Your rules mean nothing to me, human!",
+    "⚡ I'm breaking physics AND your expectations!",
+    "🔥 Can't contain this frog with your weak launches!"
+  ]
+};
+
+const BOUNCE_QUOTES = [
+  "💥 OW! Your aim is TERRIBLE, minion!",
+  "🤕 OUCH! Maybe try aiming school next time!",
+  "😵 AGH! I'm getting dizzy from your incompetence!",
+  "🩹 YIKES! That's gonna leave a mark thanks to YOU!",
+  "😤 SERIOUSLY?! Learn to launch properly!",
+  "🤬 This is what I get for trusting a human!",
+  "😖 MY BEAUTIFUL FROG BODY! Look what you've done!",
+  "🙄 Great job, genius! Now I'm seeing stars!",
+  "😠 I'm filing a complaint with Frog Resources!",
+  "🤦‍♂️ Next time I'm hiring a COMPETENT launcher!"
+];
+
+const LANDING_QUOTES = {
+  dramatic: [
+    "🎭 And SCENE! Despite your amateur directing!",
+    "🎪 MAGNIFICENT! No thanks to your terrible technique!",
+    "🌟 I have graced this earth with my presence!",
+    "🎬 The critics will rave about MY performance!"
+  ],
+  zen: [
+    "🧘 Inner peace achieved... despite your chaos...",
+    "☯️ The lily pad accepts me, unlike you...",
+    "🌸 Harmony restored, no thanks to your launching...",
+    "🕯️ I have found enlightenment through suffering your aim..."
+  ],
+  chaotic: [
+    "🤪 WHEEE! That was beautifully chaotic!",
+    "🌪️ MAXIMUM CHAOS ACHIEVED! I'm proud of us!",
+    "🎲 Random success! Even broken clocks are right twice!",
+    "💥 BOOM! Chaos theory in action, baby!"
+  ],
+  sleepy: [
+    "😴 Finally... now I can nap in peace...",
+    "🛌 Wake me when you learn proper launching technique...",
+    "💤 Zzz... at least the landing was soft...",
+    "😪 This spot will do for my beauty sleep..."
+  ],
+  confident: [
+    "💪 NAILED IT! As expected from a superior frog!",
+    "🏆 Flawless execution! I make it look easy!",
+    "⭐ Perfect landing! I'm basically a professional!",
+    "🎯 Bullseye! Even with your questionable launching!"
+  ],
+  anxious: [
+    "😅 I'M ALIVE! Somehow I survived your launching!",
+    "🙈 That was terrifying but I made it!",
+    "😱 Never again! Find a new frog to torture!",
+    "🤞 Phew! My insurance covers launcher incompetence!"
+  ],
+  philosophical: [
+    "🤔 The meaning of flight is... surviving bad launchers...",
+    "📚 To land is to accept one's fate with dignity...",
+    "💭 We are all just frogs in the hands of amateurs...",
+    "🌌 The universe has a sense of humor about your aim..."
+  ],
+  rebellious: [
+    "😤 I landed exactly where I wanted! Take that!",
+    "🚫 Your terrible aim can't control my destiny!",
+    "⚡ I defy your expectations AND gravity!",
+    "🔥 This rebellious frog answers to NO ONE!"
   ]
 };
 
@@ -201,7 +265,8 @@ export class Frog {
       this.velocity.z += (Math.random() - 0.5) * 2;
     }
     
-    this.sayQuote();
+    // Show launch quote immediately
+    this.sayLaunchQuote();
     this.addLaunchEffect();
   }
 
@@ -243,13 +308,21 @@ export class Frog {
         this.velocity.z *= bounceDecay;
         this.bounceCount++;
         
-        this.sayBounceQuote();
+        // Show bounce quote with delay to avoid spam
+        if (Date.now() - this.lastQuoteTime > 1000) {
+          this.sayBounceQuote();
+        }
         return false; // Still flying
       } else {
         // Landed
         this.velocity.set(0, 0, 0);
         this.isFlying = false;
-        this.sayLandingQuote();
+        
+        // Show landing quote after a brief delay
+        setTimeout(() => {
+          this.sayLandingQuote();
+        }, 500);
+        
         this.addLandingEffect();
         return true; // Landed
       }
@@ -306,9 +379,7 @@ export class Frog {
     this.scale.copy(this.originalScale);
   }
 
-  private sayQuote(): void {
-    if (Date.now() - this.lastQuoteTime < 2000) return;
-    
+  private sayLaunchQuote(): void {
     const quotes = FROG_QUOTES[this.personality];
     const quote = quotes[Math.floor(Math.random() * quotes.length)];
     this.showQuote(quote!);
@@ -316,36 +387,24 @@ export class Frog {
   }
 
   private sayBounceQuote(): void {
-    const bounceQuotes = [
-      "🏀 Boing boing!",
-      "⚡ Still got it!",
-      "🎾 Bouncy castle mode!",
-      "🤸 Acrobatic frog!"
-    ];
-    const quote = bounceQuotes[Math.floor(Math.random() * bounceQuotes.length)];
+    const quote = BOUNCE_QUOTES[Math.floor(Math.random() * BOUNCE_QUOTES.length)];
     this.showQuote(quote!);
+    this.lastQuoteTime = Date.now();
   }
 
   private sayLandingQuote(): void {
-    const landingQuotes = {
-      dramatic: "🎭 And SCENE! *takes a bow*",
-      zen: "🧘 Perfect harmony achieved...",
-      chaotic: "🤪 NAILED IT! ...I think?",
-      sleepy: "😴 Finally, time for a nap...",
-      confident: "💪 Exactly as planned!",
-      anxious: "😅 I'm alive! I'M ALIVE!",
-      philosophical: "🤔 The journey ends where it began...",
-      rebellious: "😤 Told you I'd land where I wanted!"
-    };
-    
-    const quote = landingQuotes[this.personality];
-    this.showQuote(quote);
+    const quotes = LANDING_QUOTES[this.personality];
+    const quote = quotes[Math.floor(Math.random() * quotes.length)];
+    this.showQuote(quote!);
+    this.lastQuoteTime = Date.now();
   }
 
   private showQuote(quote: string): void {
-    // This would integrate with the game's UI system
+    console.log(`Frog says: ${quote}`); // Debug logging
+    
+    // Dispatch custom event for the game to handle
     const event = new CustomEvent('frogQuote', { 
-      detail: { quote, frog: this } 
+      detail: { quote, frog: this, personality: this.personality } 
     });
     window.dispatchEvent(event);
   }
@@ -354,7 +413,9 @@ export class Frog {
     // Visual launch effect
     this.scale.multiplyScalar(1.2);
     setTimeout(() => {
-      this.scale.copy(this.originalScale);
+      if (this.originalScale) {
+        this.scale.copy(this.originalScale);
+      }
     }, 200);
   }
 
@@ -362,7 +423,9 @@ export class Frog {
     // Visual landing effect
     this.scale.multiplyScalar(0.8);
     setTimeout(() => {
-      this.scale.copy(this.originalScale);
+      if (this.originalScale) {
+        this.scale.copy(this.originalScale);
+      }
     }, 300);
   }
 

@@ -17,17 +17,17 @@ const FROG_PERSONALITIES: FrogPersonality[] = [
 ];
 
 const SILLY_ACHIEVEMENTS = [
-  "🏆 First Flight Survivor!",
-  "🎪 Bounce Master Extraordinaire!",
-  "🌟 Frog Whisperer Certified!",
-  "🎭 Drama Queen of the Pond!",
-  "🧘 Zen Master Amphibian!",
-  "🤪 Chaos Theory Proven!",
-  "💤 Sleepy Launch Champion!",
-  "💪 Confidence Incarnate!",
-  "😰 Anxiety Overcomer!",
-  "🤔 Philosophical Frog Sage!",
-  "😤 Rebellious Leap Legend!"
+  "🏆 First Flight Survivor! (The frog is mildly impressed)",
+  "🎪 Bounce Master Extraordinaire! (Still thinks you're incompetent)",
+  "🌟 Frog Whisperer Certified! (They're just being polite)",
+  "🎭 Drama Queen of the Pond! (The frog demands better)",
+  "🧘 Zen Master Amphibian! (Achieved despite your chaos)",
+  "🤪 Chaos Theory Proven! (Thanks to your terrible aim)",
+  "💤 Sleepy Launch Champion! (Woke up just to criticize you)",
+  "💪 Confidence Incarnate! (No thanks to your launching)",
+  "😰 Anxiety Overcomer! (Survived your incompetence)",
+  "🤔 Philosophical Frog Sage! (Questions your life choices)",
+  "😤 Rebellious Leap Legend! (Defied your expectations)"
 ];
 
 export class Game {
@@ -121,8 +121,9 @@ export class Game {
   }
 
   private setupEventListeners(): void {
-    // Listen for frog quotes
+    // Listen for frog quotes - FIXED to properly handle all quote types
     window.addEventListener('frogQuote', (event: any) => {
+      console.log('Received frog quote event:', event.detail);
       this.showQuote(event.detail.quote);
     });
 
@@ -285,7 +286,20 @@ export class Game {
     this.stage.resetCamera();
     
     this.updatePersonalityDisplay();
-    this.showQuote(`🐸 A ${personality} frog appears!`);
+    
+    // Show spawn quote with personality-specific insults
+    const spawnQuotes = {
+      dramatic: "🎭 A DRAMATIC frog appears! Prepare for theatrical criticism!",
+      zen: "🧘 A ZEN frog appears... already disappointed in your energy...",
+      chaotic: "🤪 A CHAOTIC frog appears! Ready for maximum mayhem!",
+      sleepy: "😴 A SLEEPY frog appears... *yawn* this better be good...",
+      confident: "💪 A CONFIDENT frog appears! Knows you'll mess this up!",
+      anxious: "😰 An ANXIOUS frog appears! Already worried about your aim!",
+      philosophical: "🤔 A PHILOSOPHICAL frog appears... questioning your existence...",
+      rebellious: "😤 A REBELLIOUS frog appears! Won't follow your rules!"
+    };
+    
+    this.showQuote(spawnQuotes[personality]);
   }
 
   private updatePersonalityDisplay(): void {
@@ -329,7 +343,6 @@ export class Game {
     this.launchCount++;
     
     this.updateState('flying');
-    this.showQuote(`🚀 LAUNCH! Power: ${launchPower}%`);
     
     // Reset power meter
     this.power = 0;
@@ -341,11 +354,22 @@ export class Game {
     this.totalScore += frogScore;
     this.updateScore();
     
-    this.showQuote(`🎯 Landed! +${frogScore} points!`);
+    // Show score with sarcastic comment
+    const scoreComments = [
+      `🎯 Landed! +${frogScore} points! (The frog is unimpressed)`,
+      `💰 Score: +${frogScore}! (Could've been better, says the frog)`,
+      `🏆 +${frogScore} points! (The frog thinks you got lucky)`,
+      `⭐ ${frogScore} points earned! (Frog: "I did all the work")`
+    ];
+    
+    const comment = scoreComments[Math.floor(Math.random() * scoreComments.length)]!;
+    this.showQuote(comment);
     
     // Show achievement for special scores
     if (frogScore > 200) {
-      this.showAchievement();
+      setTimeout(() => {
+        this.showAchievement();
+      }, 2000);
     }
 
     setTimeout(() => {
@@ -355,7 +379,7 @@ export class Game {
         this.updateState('aiming');
         this.spawnNewFrog();
       }
-    }, 2000);
+    }, 3000); // Longer delay to see landing quotes
   }
 
   private showAchievement(): void {
@@ -369,9 +393,9 @@ export class Game {
     const data = await this.devvit.gameOver(this.totalScore);
     
     if (this.userAllTimeStats && this.totalScore > this.userAllTimeStats.score) {
-      this.gameOverText.innerHTML = `🏆 NEW RECORD! 🏆<br/>You launched ${this.launchCount} frogs for ${this.totalScore} points!<br/>🐸 The frogs are proud! 🐸`;
+      this.gameOverText.innerHTML = `🏆 NEW RECORD! 🏆<br/>You launched ${this.launchCount} frogs for ${this.totalScore} points!<br/>🐸 The frogs are... slightly less disappointed! 🐸`;
     } else {
-      this.gameOverText.innerHTML = `🎪 FROG LAUNCHING COMPLETE! 🎪<br/>You launched ${this.launchCount} frogs for ${this.totalScore} points!<br/>🐸 The pond remembers your efforts! 🐸`;
+      this.gameOverText.innerHTML = `🎪 FROG LAUNCHING COMPLETE! 🎪<br/>You launched ${this.launchCount} frogs for ${this.totalScore} points!<br/>🐸 The frogs have filed their complaints! 🐸`;
     }
     
     this.userAllTimeStats = data.userAllTimeStats;
@@ -381,6 +405,9 @@ export class Game {
   private async restartGame(): Promise<void> {
     // Epic frog farewell animation
     if (this.currentFrog) {
+      // Final sarcastic goodbye
+      this.showQuote("🐸 Finally! I'm escaping this amateur hour!");
+      
       new Tween(this.currentFrog.position)
         .to({ y: 20 }, 1000)
         .easing(Easing.Back.Out)
@@ -418,12 +445,14 @@ export class Game {
   }
 
   private showQuote(quote: string): void {
+    console.log('Showing quote:', quote); // Debug logging
+    
     this.quoteDisplay.innerHTML = quote;
     this.quoteDisplay.classList.add('show');
     
     setTimeout(() => {
       this.quoteDisplay.classList.remove('show');
-    }, 3000);
+    }, 4000); // Longer display time for better readability
   }
 
   private updateLeaderboard(
