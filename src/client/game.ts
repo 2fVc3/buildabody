@@ -26,6 +26,7 @@ export class Game {
   private state: GameState = 'loading';
   private stage!: Stage;
   private blocks: Block[] = [];
+  private currentBlockIndex: number = 0; // Track which block in current layer we're placing
 
   private pool!: Pool<Block>;
   private stats!: Stats;
@@ -79,6 +80,7 @@ export class Game {
     this.stage.resize(width, height);
 
     this.blocks = [];
+    this.currentBlockIndex = 0;
     this.addBaseLayer();
 
     this.pool = new Pool(() => new Block());
@@ -119,18 +121,30 @@ export class Game {
     if (this.state !== 'playing') return;
     
     const currentBlock = this.blocks[this.blocks.length - 1];
-    if (!currentBlock) return;
+    if (!currentBlock || currentBlock.direction.length() === 0) return; // Don't check if block is placed
 
-    // Check if block is too far from the stack
-    const baseLayer = this.getBaseLayerForLevel(this.blocks.length - 1);
-    if (baseLayer.length === 0) return;
-
-    const baseBlock = baseLayer[0]!;
-    const xDiff = Math.abs(currentBlock.x - baseBlock.x);
-    const zDiff = Math.abs(currentBlock.z - baseBlock.z);
+    // Get the layer this block should be placed on
+    const currentLayer = this.getCurrentLayer();
+    const baseY = this.getLayerBaseY(currentLayer);
+    const baseBlocks = this.getBlocksAtLayer(currentLayer - 1);
     
-    // If block is more than 90% off the base, tower falls
-    if (xDiff > baseBlock.width * 0.9 || zDiff > baseBlock.depth * 0.9) {
+    if (baseBlocks.length === 0) return;
+
+    // Check if block is too far from any base block
+    let isSupported = false;
+    for (const baseBlock of baseBlocks) {
+      const xDiff = Math.abs(currentBlock.x - baseBlock.x);
+      const zDiff = Math.abs(currentBlock.z - baseBlock.z);
+      
+      // If block overlaps with any base block by at least 20%, it's supported
+      if (xDiff < (baseBlock.width + currentBlock.width) * 0.4 && 
+          zDiff < (baseBlock.depth + currentBlock.depth) * 0.4) {
+        isSupported = true;
+        break;
+      }
+    }
+
+    if (!isSupported) {
       this.toppleTower();
     }
   }
@@ -195,8 +209,9 @@ export class Game {
     if (this.state === 'playing') return;
     this.colorOffset = Math.round(Math.random() * 100);
     this.scoreContainer.innerHTML = '0';
+    this.currentBlockIndex = 0;
     this.updateState('playing');
-    this.addNewLayer();
+    this.addNextBlock();
   }
 
   private async restartGame(): Promise<void> {
@@ -234,13 +249,14 @@ export class Game {
 
     setTimeout(async () => {
       this.blocks = [];
+      this.currentBlockIndex = 0;
       this.addBaseLayer();
       await this.startGame();
     }, resetDuration);
   }
 
   private async endGame(): Promise<void> {
-    const score = Math.floor((this.blocks.length - 3) / 3); // Count complete layers
+    const score = Math.floor((this.blocks.length - 3) / 3); // Count complete layers above base
     const data = await this.devvit.gameOver(score);
 
     if (this.userAllTimeStats && score > this.userAllTimeStats.score) {
@@ -257,25 +273,39 @@ export class Game {
     if (this.state !== 'playing') return;
 
     const currentBlock = this.blocks[this.blocks.length - 1]!;
-    const currentLevel = this.getCurrentLevel();
-    const baseLayer = this.getBaseLayerForLevel(currentLevel);
+    const currentLayer = this.getCurrentLayer();
+    const baseBlocks = this.getBlocksAtLayer(currentLayer - 1);
     
-    if (baseLayer.length === 0) return;
+    if (baseBlocks.length === 0) return;
 
-    const targetBlock = baseLayer[0]!;
-
-    // Check if block is within valid placement range
-    const xDiff = Math.abs(currentBlock.x - targetBlock.x);
-    const zDiff = Math.abs(currentBlock.z - targetBlock.z);
+    // Check if block is supported by at least one base block
+    let bestOverlap = 0;
+    let bestBaseBlock = baseBlocks[0]!;
     
-    if (xDiff > targetBlock.width * 0.9 || zDiff > targetBlock.depth * 0.9) {
-      this.toppleTower();
-      return;
+    for (const baseBlock of baseBlocks) {
+      const xOverlap = Math.max(0, Math.min(
+        currentBlock.x + currentBlock.width/2, baseBlock.x + baseBlock.width/2
+      ) - Math.max(
+        currentBlock.x - currentBlock.width/2, baseBlock.x - baseBlock.width/2
+      ));
+      
+      const zOverlap = Math.max(0, Math.min(
+        currentBlock.z + currentBlock.depth/2, baseBlock.z + baseBlock.depth/2
+      ) - Math.max(
+        currentBlock.z - currentBlock.depth/2, baseBlock.z - baseBlock.depth/2
+      ));
+      
+      const overlap = xOverlap * zOverlap;
+      if (overlap > bestOverlap) {
+        bestOverlap = overlap;
+        bestBaseBlock = baseBlock;
+      }
     }
 
-    const result = currentBlock.cut(targetBlock, this.config.gameplay.accuracy);
-
-    if (result.state === 'missed') {
+    // Minimum overlap required (20% of block area)
+    const minOverlap = (currentBlock.width * currentBlock.depth) * 0.2;
+    
+    if (bestOverlap < minOverlap) {
       this.toppleTower();
       return;
     }
@@ -283,39 +313,36 @@ export class Game {
     // Stop the block movement
     currentBlock.direction.set(0, 0, 0);
 
-    if (result.state === 'chopped') {
-      this.addChoppedBlock(result.position!, result.scale!, currentBlock);
-    }
+    // Snap to proper position on the layer
+    const targetY = this.getLayerBaseY(currentLayer);
+    currentBlock.y = targetY;
 
     // Check if we completed a layer (3 blocks)
-    const blocksInCurrentLayer = this.getBlocksInLevel(currentLevel);
-    if (blocksInCurrentLayer.length >= 3) {
-      this.addNewLayer();
-    } else {
-      this.addBlockToCurrentLayer();
+    this.currentBlockIndex++;
+    if (this.currentBlockIndex >= 3) {
+      this.currentBlockIndex = 0; // Reset for next layer
     }
 
+    this.addNextBlock();
     this.updateScore();
   }
 
-  private getCurrentLevel(): number {
-    return Math.floor((this.blocks.length - 3) / 3);
+  private getCurrentLayer(): number {
+    return Math.floor((this.blocks.length - 3) / 3) + 1; // Layer 0 is base, layer 1 is first built layer
   }
 
-  private getBaseLayerForLevel(level: number): Block[] {
-    if (level === 0) {
+  private getLayerBaseY(layer: number): number {
+    const { scale } = this.config.block.base;
+    return layer * (scale.y + 0.05); // Small gap between layers
+  }
+
+  private getBlocksAtLayer(layer: number): Block[] {
+    if (layer === 0) {
       return this.blocks.slice(0, 3); // Base layer
     }
-    const startIndex = 3 + (level - 1) * 3;
-    return this.blocks.slice(startIndex, startIndex + 3);
-  }
-
-  private getBlocksInLevel(level: number): Block[] {
-    if (level === 0) {
-      return this.blocks.slice(0, 3);
-    }
-    const startIndex = 3 + level * 3;
-    return this.blocks.slice(startIndex);
+    const startIndex = 3 + (layer - 1) * 3;
+    const endIndex = Math.min(startIndex + 3, this.blocks.length);
+    return this.blocks.slice(startIndex, endIndex);
   }
 
   private addBaseLayer(): void {
@@ -337,29 +364,34 @@ export class Game {
     }
   }
 
-  private addNewLayer(): void {
-    const currentLevel = this.getCurrentLevel() + 1;
-    const isEvenLevel = currentLevel % 2 === 0;
-    const baseLayer = this.getBaseLayerForLevel(currentLevel - 1);
+  private addNextBlock(): void {
+    const currentLayer = this.getCurrentLayer();
+    const isEvenLayer = currentLayer % 2 === 0;
+    const baseY = this.getLayerBaseY(currentLayer);
     
-    if (baseLayer.length === 0) return;
-
-    const baseBlock = baseLayer[1]!; // Use middle block as reference
     const block = this.pool.get();
+    const { scale } = this.config.block.base;
     
-    block.scale.copy(baseBlock.scale);
-    block.position.set(
-      baseBlock.x,
-      baseBlock.y + baseBlock.height + 0.05,
-      baseBlock.z
-    );
+    block.scale.set(scale.x, scale.y, scale.z);
     
-    // JENGA PATTERN: Alternate orientations
-    if (isEvenLevel) {
-      block.rotation.set(0, 0, 0); // Horizontal along X-axis
+    // JENGA PATTERN: Alternate orientations between layers
+    if (isEvenLayer) {
+      // Even layers: horizontal along X-axis (like base layer)
+      block.rotation.set(0, 0, 0);
+      block.position.set(
+        (this.currentBlockIndex - 1) * (scale.x + 0.1), // Position in layer
+        baseY,
+        0
+      );
       block.direction.set(Math.random() > 0.5 ? 1 : -1, 0, 0); // Move along X
     } else {
-      block.rotation.set(0, Math.PI / 2, 0); // Horizontal along Z-axis  
+      // Odd layers: horizontal along Z-axis (perpendicular to base)
+      block.rotation.set(0, Math.PI / 2, 0);
+      block.position.set(
+        0,
+        baseY,
+        (this.currentBlockIndex - 1) * (scale.z + 0.1) // Position in layer
+      );
       block.direction.set(0, 0, Math.random() > 0.5 ? 1 : -1); // Move along Z
     }
     
@@ -371,50 +403,7 @@ export class Game {
     
     // Start the block moving from a distance
     block.moveScalar(this.config.gameplay.distance);
-    this.stage.setCamera(block.y);
-  }
-
-  private addBlockToCurrentLayer(): void {
-    const currentLevel = this.getCurrentLevel();
-    const blocksInLevel = this.getBlocksInLevel(currentLevel);
-    const isEvenLevel = currentLevel % 2 === 0;
-    
-    if (blocksInLevel.length >= 3) return;
-
-    const referenceBlock = blocksInLevel[0]!;
-    const block = this.pool.get();
-    
-    block.scale.copy(referenceBlock.scale);
-    
-    // Position next to existing blocks in the layer
-    if (isEvenLevel) {
-      // Horizontal layer along X-axis
-      block.position.set(
-        referenceBlock.x + (blocksInLevel.length) * (referenceBlock.width + 0.1),
-        referenceBlock.y,
-        referenceBlock.z
-      );
-      block.rotation.set(0, 0, 0);
-      block.direction.set(Math.random() > 0.5 ? 1 : -1, 0, 0);
-    } else {
-      // Horizontal layer along Z-axis
-      block.position.set(
-        referenceBlock.x,
-        referenceBlock.y,
-        referenceBlock.z + (blocksInLevel.length) * (referenceBlock.depth + 0.1)
-      );
-      block.rotation.set(0, Math.PI / 2, 0);
-      block.direction.set(0, 0, Math.random() > 0.5 ? 1 : -1);
-    }
-    
-    block.color = this.getNextBlockColor();
-    block.applyEffect(this.getRandomEffect());
-
-    this.stage.add(block.getMesh());
-    this.blocks.push(block);
-    
-    // Start the block moving from a distance
-    block.moveScalar(this.config.gameplay.distance);
+    this.stage.setCamera(block.y + 5);
   }
 
   private updateScore(): void {
@@ -428,9 +417,9 @@ export class Game {
 
   private getRandomEffect(): BlockEffect {
     const effects: BlockEffect[] = [
-      { type: 'grow', duration: 5000, magnitude: 0.3 },
-      { type: 'shrink', duration: 5000, magnitude: 0.2 },
-      { type: 'speed', duration: 3000, magnitude: 0.5 },
+      { type: 'grow', duration: 5000, magnitude: 0.2 },
+      { type: 'shrink', duration: 5000, magnitude: 0.15 },
+      { type: 'speed', duration: 3000, magnitude: 0.4 },
       { type: 'slow', duration: 3000, magnitude: 0.3 },
       { type: 'rainbow', duration: 4000, magnitude: 1 },
       { type: 'none', duration: 0, magnitude: 0 }
@@ -481,9 +470,9 @@ export class Game {
     if (this.state !== 'playing') return;
 
     const currentBlock = this.blocks[this.blocks.length - 1];
-    if (!currentBlock) return;
+    if (!currentBlock || currentBlock.direction.length() === 0) return;
 
-    const speed = 0.08 + Math.min(0.0004 * this.blocks.length, 0.04);
+    const speed = 0.06 + Math.min(0.0003 * this.blocks.length, 0.03);
     currentBlock.moveScalar(speed * deltaTime);
 
     this.reverseDirection();
@@ -491,24 +480,32 @@ export class Game {
 
   private reverseDirection(): void {
     const currentBlock = this.blocks[this.blocks.length - 1];
-    if (!currentBlock) return;
+    if (!currentBlock || currentBlock.direction.length() === 0) return;
 
-    const currentLevel = this.getCurrentLevel();
-    const baseLayer = this.getBaseLayerForLevel(currentLevel);
-    if (baseLayer.length === 0) return;
+    const currentLayer = this.getCurrentLayer();
+    const baseBlocks = this.getBlocksAtLayer(currentLayer - 1);
+    if (baseBlocks.length === 0) return;
 
-    const targetBlock = baseLayer[0]!;
     const { distance } = this.config.gameplay;
+
+    // Find the center of the base layer
+    let centerX = 0, centerZ = 0;
+    for (const block of baseBlocks) {
+      centerX += block.x;
+      centerZ += block.z;
+    }
+    centerX /= baseBlocks.length;
+    centerZ /= baseBlocks.length;
 
     // Check movement bounds based on current direction
     if (Math.abs(currentBlock.direction.x) > 0) {
       // Moving along X axis
-      if (Math.abs(currentBlock.x - targetBlock.x) > distance) {
+      if (Math.abs(currentBlock.x - centerX) > distance) {
         currentBlock.direction.x *= -1;
       }
     } else if (Math.abs(currentBlock.direction.z) > 0) {
       // Moving along Z axis
-      if (Math.abs(currentBlock.z - targetBlock.z) > distance) {
+      if (Math.abs(currentBlock.z - centerZ) > distance) {
         currentBlock.direction.z *= -1;
       }
     }

@@ -33,14 +33,14 @@ const defaultPostConfig: PostConfig = {
     },
   },
   'gameplay': {
-    'distance': 8, // Movement range
+    'distance': 6, // Movement range
     'speed': {
       'min': 4,
       'max': 8,
       'multiplier': 0.02,
     },
     'accuracy': 0.3,
-    'effectProbability': 0.2,
+    'effectProbability': 0.15,
   },
   'instructions': {
     'height': 5,
@@ -48,7 +48,7 @@ const defaultPostConfig: PostConfig = {
   'camera': {
     'near': -100,
     'far': 1000,
-    'viewSize': 25, // Good view of the Jenga tower
+    'viewSize': 20, // Good view of the Jenga tower
     'position': {
       'x': 12, // Angled view like the image
       'y': 15,
@@ -59,7 +59,7 @@ const defaultPostConfig: PostConfig = {
       'y': 3,
       'z': 0,
     },
-    'offset': 8,
+    'offset': 6,
   },
   'background': {
     'color': '0xF5F5DC', // Beige background like wooden table
