@@ -21,15 +21,28 @@ import {
   ShaderMaterial,
   PCFSoftShadowMap,
   ACESFilmicToneMapping,
-  MeshPhysicalMaterial,
-  BackSide,
-  TextureLoader,
-  RepeatWrapping,
-  MeshStandardMaterial,
-  DoubleSide
+  MeshPhongMaterial,
+  DodecahedronGeometry,
+  HemisphereLight,
+  Matrix4,
+  MeshBasicMaterial
 } from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
 import { EnvironmentEffects } from './environmentEffects';
+
+// Beautiful low-poly colors inspired by the airplane game
+const Colors = {
+  red: 0xf25346,
+  yellow: 0xedeb27,
+  white: 0xd8d0d1,
+  brown: 0x59332e,
+  pink: 0xF5986E,
+  brownDark: 0x23190f,
+  blue: 0x68c3c0,
+  green: 0x458248,
+  purple: 0x551A8B,
+  lightgreen: 0x629265,
+};
 
 export class Stage {
   private container: HTMLElement;
@@ -42,29 +55,25 @@ export class Stage {
   private lastSceneryUpdate: number = 0;
   private clock: Clock;
   
-  // Enhanced visual elements
-  private waterMesh!: Mesh;
-  private groundMesh!: Mesh;
-  private skyMesh!: Mesh;
+  // Beautiful low-poly world elements
+  private land!: Mesh;
+  private sky!: Object3D;
+  private forest!: Object3D;
   private environmentEffects!: EnvironmentEffects;
 
   private config: PostConfig;
 
   constructor(config: PostConfig, devicePixelRatio: number) {
     this.config = config;
-    this.container = document.getElementById('game') as HTMLElement;
+    this.container = document.getElementById('world') as HTMLElement;
     this.scene = new Scene();
     this.clock = new Clock();
 
     this.setupRenderer(devicePixelRatio);
     this.setupCamera();
     this.setupLights();
-    this.setupGround();
-    this.setupWater();
-    this.setupSky();
-    this.setupEnvironment();
+    this.setupWorld();
     this.setupEnvironmentEffects();
-    this.setupDynamicFog();
     
     this.originalCameraPosition = this.camera.position.clone();
   }
@@ -72,19 +81,15 @@ export class Stage {
   public render(): void {
     const time = this.clock.getElapsedTime();
     
-    // Update water animation
-    if (this.waterMesh.material instanceof ShaderMaterial) {
-      this.waterMesh.material.uniforms.time.value = time;
+    // Rotate the beautiful low-poly world
+    if (this.land) {
+      this.land.rotation.z += 0.005;
     }
-    
-    // Update sky shader
-    if (this.skyMesh.material instanceof ShaderMaterial) {
-      this.skyMesh.material.uniforms.time.value = time;
+    if (this.sky) {
+      this.sky.rotation.z += 0.003;
     }
-    
-    // Update ground shader
-    if (this.groundMesh.material instanceof ShaderMaterial) {
-      this.groundMesh.material.uniforms.time.value = time;
+    if (this.forest) {
+      this.forest.rotation.z += 0.005;
     }
     
     // Update environment effects
@@ -115,11 +120,10 @@ export class Stage {
   private setupRenderer(devicePixelRatio: number): void {
     this.renderer = new WebGLRenderer({
       antialias: true,
-      alpha: false,
+      alpha: true,
       powerPreference: "high-performance"
     });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.setClearColor(0x87CEEB, 1);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFSoftShadowMap;
     this.renderer.toneMapping = ACESFilmicToneMapping;
@@ -132,495 +136,269 @@ export class Stage {
     this.camera = new OrthographicCamera();
     this.camera.near = near;
     this.camera.far = far;
-    this.camera.position.set(position.x, position.y, position.z);
-    this.camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
+    this.camera.position.set(0, 150, 100);
+    this.camera.lookAt(0, 0, 0);
   }
 
   private setupLights(): void {
-    const { color, intensity, position } = this.config.light.directional;
-    const directionalLight = new DirectionalLight(parseInt(color, 16), intensity);
-    directionalLight.position.set(position.x, position.y, position.z);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 500;
-    directionalLight.shadow.camera.left = -100;
-    directionalLight.shadow.camera.right = 100;
-    directionalLight.shadow.camera.top = 100;
-    directionalLight.shadow.camera.bottom = -100;
-    this.add(directionalLight);
+    // Beautiful gradient lighting like the airplane game
+    const hemisphereLight = new HemisphereLight(0xaaaaaa, 0x000000, 0.9);
+    this.scene.add(hemisphereLight);
 
-    const ambientLight = new AmbientLight(
-      parseInt(this.config.light.ambient.color, 16), 
-      this.config.light.ambient.intensity
-    );
-    this.add(ambientLight);
+    // Directional shadow light
+    const shadowLight = new DirectionalLight(0xffffff, 0.9);
+    shadowLight.position.set(0, 350, 350);
+    shadowLight.castShadow = true;
+
+    // Shadow camera setup
+    shadowLight.shadow.camera.left = -650;
+    shadowLight.shadow.camera.right = 650;
+    shadowLight.shadow.camera.top = 650;
+    shadowLight.shadow.camera.bottom = -650;
+    shadowLight.shadow.camera.near = 1;
+    shadowLight.shadow.camera.far = 1000;
+    shadowLight.shadow.mapSize.width = 2048;
+    shadowLight.shadow.mapSize.height = 2048;
+
+    this.scene.add(shadowLight);
+
+    // Add beautiful fog effect
+    this.scene.fog = new Fog(0xf7d9aa, 100, 950);
   }
 
-  private setupGround(): void {
-    // Create beautiful procedural terrain
-    const groundGeometry = new PlaneGeometry(2000, 2000, 128, 128);
-    
-    // Beautiful grass terrain with proper textures
-    const groundMaterial = new ShaderMaterial({
-      uniforms: {
-        time: { value: 0.0 },
-        grassColor: { value: new Color(0x4a7c59) },
-        dirtColor: { value: new Color(0x8b4513) },
-        sandColor: { value: new Color(0xffe894) },
-        rockColor: { value: new Color(0x8B7355) }
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        varying vec3 vPosition;
-        varying vec3 vNormal;
-        varying float vElevation;
-        
-        // Noise function for terrain generation
-        float noise(vec2 p) {
-          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-        }
-        
-        float fbm(vec2 p) {
-          float value = 0.0;
-          float amplitude = 0.5;
-          float frequency = 1.0;
-          
-          for(int i = 0; i < 4; i++) {
-            value += amplitude * noise(p * frequency);
-            amplitude *= 0.5;
-            frequency *= 2.0;
-          }
-          return value;
-        }
-        
-        void main() {
-          vUv = uv;
-          vPosition = position;
-          
-          // Create beautiful terrain elevation
-          vec2 pos = position.xz * 0.01;
-          float elevation = fbm(pos) * 2.0;
-          elevation += fbm(pos * 2.0) * 1.0;
-          elevation += fbm(pos * 4.0) * 0.5;
-          
-          vec3 newPosition = position;
-          newPosition.y += elevation;
-          vElevation = elevation;
-          
-          // Calculate normal for lighting
-          float dx = fbm((pos + vec2(0.01, 0.0)) * 1.0) - fbm((pos - vec2(0.01, 0.0)) * 1.0);
-          float dz = fbm((pos + vec2(0.0, 0.01)) * 1.0) - fbm((pos - vec2(0.0, 0.01)) * 1.0);
-          
-          vNormal = normalize(vec3(-dx * 20.0, 1.0, -dz * 20.0));
-          
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float time;
-        uniform vec3 grassColor;
-        uniform vec3 dirtColor;
-        uniform vec3 sandColor;
-        uniform vec3 rockColor;
-        
-        varying vec2 vUv;
-        varying vec3 vPosition;
-        varying vec3 vNormal;
-        varying float vElevation;
-        
-        float noise(vec2 p) {
-          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-        }
-        
-        void main() {
-          vec2 uv = vUv * 50.0;
-          
-          // Base terrain color mixing
-          vec3 color = sandColor;
-          
-          // Grass on higher elevations
-          float grassMix = smoothstep(-0.5, 1.0, vElevation);
-          color = mix(color, grassColor, grassMix);
-          
-          // Rock on steep slopes
-          float steepness = 1.0 - dot(vNormal, vec3(0.0, 1.0, 0.0));
-          float rockMix = smoothstep(0.3, 0.7, steepness);
-          color = mix(color, rockColor, rockMix);
-          
-          // Add texture detail
-          float detail = noise(uv) * 0.1;
-          color += detail;
-          
-          // Add some variation
-          float variation = noise(uv * 0.1) * 0.05;
-          color += variation;
-          
-          gl_FragColor = vec4(color, 1.0);
-        }
-      `
-    });
-    
-    this.groundMesh = new Mesh(groundGeometry, groundMaterial);
-    this.groundMesh.rotation.x = -Math.PI / 2;
-    this.groundMesh.position.y = 0;
-    this.groundMesh.receiveShadow = true;
-    this.add(this.groundMesh);
+  private setupWorld(): void {
+    this.createLand();
+    this.createSky();
+    this.createForest();
+    this.createLaunchPad();
   }
 
-  private setupWater(): void {
-    // Create stunning realistic water
-    const waterGeometry = new PlaneGeometry(100, 100, 64, 64);
+  private createLand(): void {
+    // Beautiful cylindrical land like the airplane game
+    const geom = new CylinderGeometry(600, 600, 1700, 40, 10);
+    geom.applyMatrix4(new Matrix4().makeRotationX(-Math.PI / 2));
     
-    const waterMaterial = new ShaderMaterial({
-      uniforms: {
-        time: { value: 0.0 },
-        waterColor: { value: new Color(0x006994) },
-        foamColor: { value: new Color(0xffffff) },
-        deepWaterColor: { value: new Color(0x003366) }
-      },
-      vertexShader: `
-        uniform float time;
-        varying vec2 vUv;
-        varying vec3 vPosition;
-        varying vec3 vNormal;
-        varying float vElevation;
-        
-        // Advanced noise for realistic water
-        float noise(vec2 p) {
-          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-        }
-        
-        float fbm(vec2 p) {
-          float value = 0.0;
-          float amplitude = 0.5;
-          float frequency = 1.0;
-          
-          for(int i = 0; i < 6; i++) {
-            value += amplitude * noise(p * frequency);
-            amplitude *= 0.5;
-            frequency *= 2.0;
-          }
-          return value;
-        }
-        
-        void main() {
-          vUv = uv;
-          
-          vec3 pos = position;
-          
-          // Create realistic water waves
-          vec2 wavePos = pos.xz * 0.1;
-          float wave1 = sin(wavePos.x * 2.0 + time * 2.0) * 0.4;
-          float wave2 = sin(wavePos.y * 1.5 + time * 1.5) * 0.3;
-          float wave3 = sin((wavePos.x + wavePos.y) * 0.8 + time * 2.5) * 0.2;
-          
-          // Add noise for realistic movement
-          float noiseValue = fbm(wavePos + time * 0.1) * 0.3;
-          
-          float elevation = wave1 + wave2 + wave3 + noiseValue;
-          pos.y += elevation;
-          vElevation = elevation;
-          
-          // Calculate normal for lighting
-          float dx = sin((wavePos.x + 0.1) * 2.0 + time * 2.0) * 0.4 - wave1;
-          float dz = sin((wavePos.y + 0.1) * 1.5 + time * 1.5) * 0.3 - wave2;
-          
-          vec3 tangent = normalize(vec3(1.0, dx * 10.0, 0.0));
-          vec3 bitangent = normalize(vec3(0.0, dz * 10.0, 1.0));
-          vNormal = normalize(cross(tangent, bitangent));
-          
-          vPosition = pos;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float time;
-        uniform vec3 waterColor;
-        uniform vec3 foamColor;
-        uniform vec3 deepWaterColor;
-        
-        varying vec2 vUv;
-        varying vec3 vPosition;
-        varying vec3 vNormal;
-        varying float vElevation;
-        
-        // Fresnel effect for realistic water
-        float fresnel(vec3 viewDirection, vec3 normal, float power) {
-          return pow(1.0 - max(0.0, dot(viewDirection, normal)), power);
-        }
-        
-        // Water caustics
-        float caustics(vec2 uv, float time) {
-          vec2 p = uv * 8.0;
-          float c = 0.0;
-          
-          for(int i = 0; i < 3; i++) {
-            float t = time * 0.5 + float(i) * 2.0;
-            vec2 offset = vec2(sin(t), cos(t)) * 0.3;
-            c += sin(length(p + offset) * 3.0 - time * 2.0) * 0.3;
-          }
-          
-          return max(0.0, c);
-        }
-        
-        void main() {
-          vec2 uv = vUv;
-          
-          // Base water color with depth variation
-          vec3 color = mix(deepWaterColor, waterColor, 0.7);
-          
-          // Add foam on wave peaks
-          float foam = smoothstep(0.3, 0.8, vElevation + 0.5);
-          color = mix(color, foamColor, foam * 0.8);
-          
-          // Add caustics effect
-          float causticsValue = caustics(uv + time * 0.1, time);
-          color += causticsValue * 0.3 * vec3(0.8, 1.0, 1.0);
-          
-          // Fresnel reflection
-          vec3 viewDirection = normalize(cameraPosition - vPosition);
-          float fresnelValue = fresnel(viewDirection, vNormal, 2.0);
-          
-          // Sky reflection
-          vec3 skyColor = vec3(0.5, 0.8, 1.0);
-          color = mix(color, skyColor, fresnelValue * 0.4);
-          
-          // Add sparkles
-          float sparkle = sin(uv.x * 80.0 + time * 3.0) * sin(uv.y * 80.0 + time * 2.0);
-          sparkle = pow(max(0.0, sparkle), 12.0);
-          color += sparkle * 0.6;
-          
-          gl_FragColor = vec4(color, 0.95);
-        }
-      `,
-      transparent: true,
-      side: DoubleSide
+    const mat = new MeshPhongMaterial({
+      color: Colors.lightgreen,
+      flatShading: true,
     });
-    
-    this.waterMesh = new Mesh(waterGeometry, waterMaterial);
-    this.waterMesh.rotation.x = -Math.PI / 2;
-    this.waterMesh.position.y = -0.2;
-    this.waterMesh.receiveShadow = true;
-    this.add(this.waterMesh);
+
+    this.land = new Mesh(geom, mat);
+    this.land.receiveShadow = true;
+    this.land.position.y = -600; // Offset like the original
+    this.scene.add(this.land);
   }
 
-  private setupSky(): void {
-    const skyGeometry = new SphereGeometry(800, 32, 16);
-    const skyMaterial = new ShaderMaterial({
-      uniforms: {
-        time: { value: 0.0 },
-        skyColor: { value: new Color(0x87CEEB) },
-        horizonColor: { value: new Color(0xFFE4B5) },
-        sunColor: { value: new Color(0xFFFFAA) },
-        cloudiness: { value: 0.3 }
-      },
-      vertexShader: `
-        varying vec3 vWorldPosition;
-        varying vec2 vUv;
-        
-        void main() {
-          vUv = uv;
-          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-          vWorldPosition = worldPosition.xyz;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float time;
-        uniform vec3 skyColor;
-        uniform vec3 horizonColor;
-        uniform vec3 sunColor;
-        uniform float cloudiness;
-        
-        varying vec3 vWorldPosition;
-        varying vec2 vUv;
-        
-        float noise(vec2 p) {
-          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-        }
-        
-        float fbm(vec2 p) {
-          float value = 0.0;
-          float amplitude = 0.5;
-          float frequency = 1.0;
-          
-          for(int i = 0; i < 4; i++) {
-            value += amplitude * noise(p * frequency);
-            amplitude *= 0.5;
-            frequency *= 2.0;
-          }
-          return value;
-        }
-        
-        void main() {
-          vec3 direction = normalize(vWorldPosition);
-          float elevation = direction.y;
-          
-          // Sky gradient
-          vec3 color = mix(horizonColor, skyColor, max(0.0, elevation));
-          
-          // Add sun
-          vec3 sunDirection = normalize(vec3(1.0, 0.3, 0.5));
-          float sunDistance = distance(direction, sunDirection);
-          float sunIntensity = 1.0 - smoothstep(0.0, 0.1, sunDistance);
-          color = mix(color, sunColor, sunIntensity * 0.8);
-          
-          // Sun glow
-          float sunGlow = 1.0 - smoothstep(0.0, 0.3, sunDistance);
-          color += sunColor * sunGlow * 0.3;
-          
-          // Clouds
-          if(elevation > 0.0) {
-            vec2 cloudUv = direction.xz / (direction.y + 0.1) + time * 0.01;
-            float cloudNoise = fbm(cloudUv * 2.0 + time * 0.02);
-            cloudNoise = smoothstep(0.4, 0.8, cloudNoise);
-            
-            vec3 cloudColor = mix(vec3(1.0), vec3(0.8, 0.8, 0.9), elevation);
-            color = mix(color, cloudColor, cloudNoise * cloudiness);
-          }
-          
-          gl_FragColor = vec4(color, 1.0);
-        }
-      `,
-      side: BackSide
-    });
+  private createSky(): void {
+    this.sky = new Object3D();
     
-    this.skyMesh = new Mesh(skyGeometry, skyMaterial);
-    this.add(this.skyMesh);
+    // Create beautiful clouds
+    const nClouds = 25;
+    const stepAngle = Math.PI * 2 / nClouds;
+
+    for (let i = 0; i < nClouds; i++) {
+      const cloud = this.createCloud();
+      
+      const a = stepAngle * i;
+      const h = 800 + Math.random() * 200;
+      cloud.position.y = Math.sin(a) * h;
+      cloud.position.x = Math.cos(a) * h;
+      cloud.rotation.z = a + Math.PI / 2;
+      cloud.position.z = -400 - Math.random() * 400;
+      
+      const s = 1 + Math.random() * 2;
+      cloud.scale.set(s, s, s);
+      
+      this.sky.add(cloud);
+    }
+    
+    this.sky.position.y = -600;
+    this.scene.add(this.sky);
+  }
+
+  private createCloud(): Object3D {
+    const mesh = new Object3D();
+    const geom = new DodecahedronGeometry(20, 0);
+    const mat = new MeshPhongMaterial({
+      color: Colors.white,
+    });
+
+    const nBlocs = 3 + Math.floor(Math.random() * 3);
+
+    for (let i = 0; i < nBlocs; i++) {
+      const m = new Mesh(geom, mat);
+      m.position.x = i * 15;
+      m.position.y = Math.random() * 10;
+      m.position.z = Math.random() * 10;
+      m.rotation.z = Math.random() * Math.PI * 2;
+      m.rotation.y = Math.random() * Math.PI * 2;
+
+      const s = 0.1 + Math.random() * 0.9;
+      m.scale.set(s, s, s);
+      mesh.add(m);
+    }
+
+    return mesh;
+  }
+
+  private createForest(): void {
+    this.forest = new Object3D();
+
+    // Create beautiful trees
+    const nTrees = 300;
+    const stepAngle = Math.PI * 2 / nTrees;
+
+    for (let i = 0; i < nTrees; i++) {
+      const tree = this.createTree();
+      
+      const a = stepAngle * i;
+      const h = 605;
+      tree.position.y = Math.sin(a) * h;
+      tree.position.x = Math.cos(a) * h;
+      tree.rotation.z = a + (Math.PI / 2) * 3;
+      tree.position.z = 0 - Math.random() * 600;
+      
+      const s = 0.3 + Math.random() * 0.75;
+      tree.scale.set(s, s, s);
+      
+      this.forest.add(tree);
+    }
+
+    // Add beautiful flowers
+    const nFlowers = 350;
+    const flowerStepAngle = Math.PI * 2 / nFlowers;
+
+    for (let i = 0; i < nFlowers; i++) {
+      const flower = this.createFlower();
+      
+      const a = flowerStepAngle * i;
+      const h = 605;
+      flower.position.y = Math.sin(a) * h;
+      flower.position.x = Math.cos(a) * h;
+      flower.rotation.z = a + (Math.PI / 2) * 3;
+      flower.position.z = 0 - Math.random() * 600;
+      
+      const s = 0.1 + Math.random() * 0.3;
+      flower.scale.set(s, s, s);
+      
+      this.forest.add(flower);
+    }
+
+    this.forest.position.y = -600;
+    this.scene.add(this.forest);
+  }
+
+  private createTree(): Object3D {
+    const mesh = new Object3D();
+
+    const matTreeLeaves = new MeshPhongMaterial({ 
+      color: Colors.green, 
+      flatShading: true 
+    });
+
+    // Tree base
+    const geonTreeBase = new BoxGeometry(10, 20, 10);
+    const matTreeBase = new MeshBasicMaterial({ color: Colors.brown });
+    const treeBase = new Mesh(geonTreeBase, matTreeBase);
+    treeBase.castShadow = true;
+    treeBase.receiveShadow = true;
+    mesh.add(treeBase);
+
+    // Tree leaves layers
+    const geomTreeLeaves1 = new CylinderGeometry(1, 12 * 3, 12 * 3, 4);
+    const treeLeaves1 = new Mesh(geomTreeLeaves1, matTreeLeaves);
+    treeLeaves1.castShadow = true;
+    treeLeaves1.receiveShadow = true;
+    treeLeaves1.position.y = 20;
+    mesh.add(treeLeaves1);
+
+    const geomTreeLeaves2 = new CylinderGeometry(1, 9 * 3, 9 * 3, 4);
+    const treeLeaves2 = new Mesh(geomTreeLeaves2, matTreeLeaves);
+    treeLeaves2.castShadow = true;
+    treeLeaves2.position.y = 40;
+    treeLeaves2.receiveShadow = true;
+    mesh.add(treeLeaves2);
+
+    const geomTreeLeaves3 = new CylinderGeometry(1, 6 * 3, 6 * 3, 4);
+    const treeLeaves3 = new Mesh(geomTreeLeaves3, matTreeLeaves);
+    treeLeaves3.castShadow = true;
+    treeLeaves3.position.y = 55;
+    treeLeaves3.receiveShadow = true;
+    mesh.add(treeLeaves3);
+
+    return mesh;
+  }
+
+  private createFlower(): Object3D {
+    const mesh = new Object3D();
+
+    // Flower stem
+    const geomStem = new BoxGeometry(5, 50, 5, 1, 1, 1);
+    const matStem = new MeshPhongMaterial({ 
+      color: Colors.green, 
+      flatShading: true 
+    });
+    const stem = new Mesh(geomStem, matStem);
+    stem.castShadow = false;
+    stem.receiveShadow = true;
+    mesh.add(stem);
+
+    // Flower center
+    const geomPetalCore = new BoxGeometry(10, 10, 10, 1, 1, 1);
+    const matPetalCore = new MeshPhongMaterial({
+      color: Colors.yellow, 
+      flatShading: true
+    });
+    const petalCore = new Mesh(geomPetalCore, matPetalCore);
+    petalCore.castShadow = false;
+    petalCore.receiveShadow = true;
+
+    // Flower petals
+    const petalColors = [Colors.red, Colors.yellow, Colors.blue];
+    const petalColor = petalColors[Math.floor(Math.random() * 3)];
+
+    const geomPetal = new BoxGeometry(15, 20, 5, 1, 1, 1);
+    const matPetal = new MeshBasicMaterial({ color: petalColor });
+    
+    // Modify petal shape
+    const vertices = geomPetal.attributes.position.array;
+    // Note: In newer Three.js, we'd need to access vertices differently
+    // This is simplified for the low-poly aesthetic
+    
+    geomPetal.translate(12.5, 0, 3);
+
+    const petals = [];
+    for (let i = 0; i < 4; i++) {
+      petals[i] = new Mesh(geomPetal, matPetal);
+      petals[i].rotation.z = i * Math.PI / 2;
+      petals[i].castShadow = true;
+      petals[i].receiveShadow = true;
+    }
+
+    petalCore.add(petals[0], petals[1], petals[2], petals[3]);
+    petalCore.position.y = 25;
+    petalCore.position.z = 3;
+    mesh.add(petalCore);
+
+    return mesh;
+  }
+
+  private createLaunchPad(): void {
+    // Beautiful launch pad for the frogs
+    const padGeometry = new CylinderGeometry(3, 3, 0.5, 16);
+    const padMaterial = new MeshPhongMaterial({ 
+      color: Colors.brown,
+      flatShading: true
+    });
+    const launchPad = new Mesh(padGeometry, padMaterial);
+    launchPad.position.set(0, 0.25, 0);
+    launchPad.castShadow = true;
+    launchPad.receiveShadow = true;
+    this.add(launchPad);
   }
 
   private setupEnvironmentEffects(): void {
     this.environmentEffects = new EnvironmentEffects(this.scene);
-  }
-
-  private setupDynamicFog(): void {
-    this.scene.fog = new Fog(0x87CEEB, 50, 200);
-  }
-
-  private setupEnvironment(): void {
-    // Beautiful launch pad
-    const padGeometry = new CylinderGeometry(2.5, 2.5, 0.3, 16);
-    const padMaterial = new MeshStandardMaterial({ 
-      color: 0x8B4513,
-      roughness: 0.8,
-      metalness: 0.1
-    });
-    const launchPad = new Mesh(padGeometry, padMaterial);
-    launchPad.position.set(0, 0.15, 0);
-    launchPad.castShadow = true;
-    launchPad.receiveShadow = true;
-    this.add(launchPad);
-
-    this.createBeautifulLilyPads();
-    this.createNaturalRocks();
-    this.createLushVegetation();
-  }
-
-  private createBeautifulLilyPads(): void {
-    for (let i = 0; i < 15; i++) {
-      const lilyPadGeometry = new CylinderGeometry(1.5, 1.2, 0.1, 12);
-      const lilyPadMaterial = new MeshStandardMaterial({ 
-        color: new Color().setHSL(0.3, 0.7, 0.4),
-        roughness: 0.6,
-        metalness: 0.0
-      });
-      const lilyPad = new Mesh(lilyPadGeometry, lilyPadMaterial);
-      
-      const angle = (i / 15) * Math.PI * 2;
-      const distance = 20 + Math.random() * 25;
-      lilyPad.position.set(
-        Math.cos(angle) * distance,
-        -0.15,
-        Math.sin(angle) * distance
-      );
-      lilyPad.rotation.y = Math.random() * Math.PI * 2;
-      lilyPad.castShadow = true;
-      lilyPad.receiveShadow = true;
-      this.add(lilyPad);
-      
-      // Add beautiful flowers
-      if (Math.random() < 0.5) {
-        const flowerGeometry = new ConeGeometry(0.4, 0.6, 8);
-        const flowerMaterial = new MeshStandardMaterial({ 
-          color: new Color().setHSL(Math.random() * 0.1 + 0.9, 0.9, 0.8)
-        });
-        const flower = new Mesh(flowerGeometry, flowerMaterial);
-        flower.position.copy(lilyPad.position);
-        flower.position.y += 0.4;
-        flower.castShadow = true;
-        this.add(flower);
-      }
-    }
-  }
-
-  private createNaturalRocks(): void {
-    for (let i = 0; i < 25; i++) {
-      const rockSize = 0.4 + Math.random() * 1.5;
-      const rockGeometry = new BoxGeometry(
-        rockSize,
-        rockSize * 0.7,
-        rockSize * 0.9
-      );
-      
-      const rockMaterial = new MeshStandardMaterial({ 
-        color: new Color().setHSL(0.1, 0.3, 0.3 + Math.random() * 0.2),
-        roughness: 0.9,
-        metalness: 0.0
-      });
-      
-      const rock = new Mesh(rockGeometry, rockMaterial);
-      rock.position.set(
-        (Math.random() - 0.5) * 80,
-        rockSize * 0.35,
-        (Math.random() - 0.5) * 80
-      );
-      rock.rotation.set(
-        (Math.random() - 0.5) * 0.5,
-        Math.random() * Math.PI * 2,
-        (Math.random() - 0.5) * 0.5
-      );
-      rock.castShadow = true;
-      rock.receiveShadow = true;
-      this.add(rock);
-    }
-  }
-
-  private createLushVegetation(): void {
-    // Create beautiful grass and plants
-    for (let i = 0; i < 20; i++) {
-      const stemGeometry = new CylinderGeometry(0.08, 0.12, 3 + Math.random() * 3, 8);
-      const stemMaterial = new MeshStandardMaterial({ 
-        color: new Color().setHSL(0.25, 0.8, 0.3),
-        roughness: 0.7
-      });
-      const stem = new Mesh(stemGeometry, stemMaterial);
-      
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 10 + Math.random() * 30;
-      stem.position.set(
-        Math.cos(angle) * distance,
-        1.5,
-        Math.sin(angle) * distance
-      );
-      stem.rotation.z = (Math.random() - 0.5) * 0.4;
-      stem.castShadow = true;
-      this.add(stem);
-      
-      // Add cattails
-      if (Math.random() < 0.7) {
-        const cattailGeometry = new CylinderGeometry(0.2, 0.15, 1.0, 8);
-        const cattailMaterial = new MeshStandardMaterial({ 
-          color: new Color().setHSL(0.08, 0.7, 0.4)
-        });
-        const cattail = new Mesh(cattailGeometry, cattailMaterial);
-        cattail.position.copy(stem.position);
-        cattail.position.y += 2.0;
-        cattail.castShadow = true;
-        this.add(cattail);
-      }
-    }
   }
 
   public followFrog(frogPosition: Vector3): void {
@@ -653,40 +431,33 @@ export class Stage {
   }
 
   private updateEnvironmentEffects(distance: number): void {
+    // Change the world colors based on distance like the original game
     let skyColor: Color;
     let fogColor: Color;
-    let waterColor: Color;
     
     if (distance < 50) {
-      skyColor = new Color(0x87CEEB);
-      fogColor = new Color(0x87CEEB);
-      waterColor = new Color(0x006994);
+      skyColor = new Color(0xf7d9aa);
+      fogColor = new Color(0xf7d9aa);
     } else if (distance < 100) {
       skyColor = new Color(0xFF6B6B);
       fogColor = new Color(0xFF6B6B);
-      waterColor = new Color(0x8B0000);
     } else if (distance < 200) {
       skyColor = new Color(0x9370DB);
       fogColor = new Color(0x9370DB);
-      waterColor = new Color(0x4B0082);
     } else if (distance < 300) {
       skyColor = new Color(0x32CD32);
       fogColor = new Color(0x32CD32);
-      waterColor = new Color(0x006400);
     } else if (distance < 500) {
       skyColor = new Color(0xFF69B4);
       fogColor = new Color(0xFF69B4);
-      waterColor = new Color(0xFF1493);
     } else if (distance < 750) {
       skyColor = new Color(0xFF4500);
       fogColor = new Color(0xFF4500);
-      waterColor = new Color(0xFF6347);
     } else {
       const time = Date.now() * 0.001;
       const hue = (time * 0.1) % 1;
       skyColor = new Color().setHSL(hue, 0.8, 0.6);
       fogColor = new Color().setHSL(hue, 0.8, 0.4);
-      waterColor = new Color().setHSL(hue, 0.9, 0.3);
     }
 
     this.renderer.setClearColor(skyColor);
@@ -694,16 +465,6 @@ export class Stage {
       (this.scene.fog as Fog).color = fogColor;
       (this.scene.fog as Fog).near = Math.max(20, 100 - distance * 0.1);
       (this.scene.fog as Fog).far = Math.max(50, 200 - distance * 0.2);
-    }
-    
-    // Update water color
-    if (this.waterMesh.material instanceof ShaderMaterial) {
-      this.waterMesh.material.uniforms.waterColor.value = waterColor;
-    }
-    
-    if (this.skyMesh.material instanceof ShaderMaterial) {
-      this.skyMesh.material.uniforms.skyColor.value = skyColor;
-      this.skyMesh.material.uniforms.horizonColor.value = fogColor;
     }
   }
 
@@ -729,11 +490,7 @@ export class Stage {
 
   private createNormalScenery(frogPosition: Vector3): void {
     for (let i = 0; i < 3; i++) {
-      const treeGeometry = new CylinderGeometry(0.5, 1, 4, 8);
-      const treeMaterial = new MeshLambertMaterial({ 
-        color: new Color().setHSL(0.08, 0.6, 0.3)
-      });
-      const tree = new Mesh(treeGeometry, treeMaterial);
+      const tree = this.createTree();
       
       tree.position.set(
         frogPosition.x + (Math.random() - 0.5) * 60,
@@ -744,28 +501,16 @@ export class Stage {
       tree.receiveShadow = true;
       
       this.add(tree);
-      this.sceneryObjects.push(tree);
-      
-      const crownGeometry = new SphereGeometry(2, 12, 8);
-      const crownMaterial = new MeshLambertMaterial({ 
-        color: new Color().setHSL(0.25, 0.7, 0.4)
-      });
-      const crown = new Mesh(crownGeometry, crownMaterial);
-      crown.position.copy(tree.position);
-      crown.position.y += 3;
-      crown.castShadow = true;
-      this.add(crown);
-      this.sceneryObjects.push(crown);
+      this.sceneryObjects.push(tree as any);
     }
   }
 
   private createWeirdScenery(frogPosition: Vector3): void {
     for (let i = 0; i < 4; i++) {
       const weirdGeometry = new BoxGeometry(2, 2, 2);
-      const weirdMaterial = new MeshLambertMaterial({ 
+      const weirdMaterial = new MeshPhongMaterial({ 
         color: new Color().setHSL(Math.random(), 0.8, 0.6),
-        transparent: true,
-        opacity: 0.8
+        flatShading: true
       });
       const weirdCube = new Mesh(weirdGeometry, weirdMaterial);
       
@@ -806,14 +551,16 @@ export class Stage {
   private createSurrealScenery(frogPosition: Vector3): void {
     for (let i = 0; i < 3; i++) {
       const stemGeometry = new CylinderGeometry(1, 1.5, 6, 8);
-      const stemMaterial = new MeshLambertMaterial({ color: 0xF5DEB3 });
+      const stemMaterial = new MeshPhongMaterial({ 
+        color: 0xF5DEB3,
+        flatShading: true
+      });
       const stem = new Mesh(stemGeometry, stemMaterial);
       
       const capGeometry = new SphereGeometry(4, 16, 8);
-      const capMaterial = new MeshLambertMaterial({ 
+      const capMaterial = new MeshPhongMaterial({ 
         color: [0xFF0000, 0xFF69B4, 0x9370DB][i % 3],
-        transparent: true,
-        opacity: 0.9
+        flatShading: true
       });
       const cap = new Mesh(capGeometry, capMaterial);
       
@@ -841,10 +588,9 @@ export class Stage {
   private createAlienScenery(frogPosition: Vector3): void {
     for (let i = 0; i < 5; i++) {
       const crystalGeometry = new ConeGeometry(1, 8, 6);
-      const crystalMaterial = new MeshLambertMaterial({ 
+      const crystalMaterial = new MeshPhongMaterial({ 
         color: 0x00FFFF,
-        transparent: true,
-        opacity: 0.8,
+        flatShading: true,
         emissive: new Color(0x004444)
       });
       const crystal = new Mesh(crystalGeometry, crystalMaterial);
@@ -866,12 +612,16 @@ export class Stage {
   private createCandyLandScenery(frogPosition: Vector3): void {
     for (let i = 0; i < 4; i++) {
       const stickGeometry = new CylinderGeometry(0.2, 0.2, 8, 8);
-      const stickMaterial = new MeshLambertMaterial({ color: 0xFFFFFF });
+      const stickMaterial = new MeshPhongMaterial({ 
+        color: 0xFFFFFF,
+        flatShading: true
+      });
       const stick = new Mesh(stickGeometry, stickMaterial);
       
       const candyGeometry = new CylinderGeometry(3, 3, 1, 16);
-      const candyMaterial = new MeshLambertMaterial({ 
-        color: [0xFF1493, 0x00FF00, 0xFFFF00, 0xFF4500][i % 4]
+      const candyMaterial = new MeshPhongMaterial({ 
+        color: [0xFF1493, 0x00FF00, 0xFFFF00, 0xFF4500][i % 4],
+        flatShading: true
       });
       const candy = new Mesh(candyGeometry, candyMaterial);
       
@@ -901,7 +651,10 @@ export class Stage {
   private createDreamWorldScenery(frogPosition: Vector3): void {
     for (let i = 0; i < 3; i++) {
       const islandGeometry = new SphereGeometry(6, 16, 8);
-      const islandMaterial = new MeshLambertMaterial({ color: 0x8FBC8F });
+      const islandMaterial = new MeshPhongMaterial({ 
+        color: 0x8FBC8F,
+        flatShading: true
+      });
       const island = new Mesh(islandGeometry, islandMaterial);
       
       island.position.set(
@@ -918,7 +671,10 @@ export class Stage {
       
       for (let j = 0; j < 3; j++) {
         const treeGeometry = new ConeGeometry(1, 4, 8);
-        const treeMaterial = new MeshLambertMaterial({ color: 0x228B22 });
+        const treeMaterial = new MeshPhongMaterial({ 
+          color: 0x228B22,
+          flatShading: true
+        });
         const tree = new Mesh(treeGeometry, treeMaterial);
         
         tree.position.set(
@@ -952,10 +708,9 @@ export class Stage {
       ];
       
       const geometry = geometries[Math.floor(Math.random() * geometries.length)]!;
-      const material = new MeshLambertMaterial({ 
+      const material = new MeshPhongMaterial({ 
         color: new Color().setHSL(Math.random(), 0.8, 0.6),
-        transparent: true,
-        opacity: 0.7 + Math.random() * 0.3,
+        flatShading: true,
         emissive: new Color().setHSL(Math.random(), 0.3, 0.2)
       });
       
@@ -1021,16 +776,11 @@ export class Stage {
     this.currentDistance = 0;
     this.lastSceneryUpdate = 0;
     
-    this.renderer.setClearColor(0x87CEEB);
+    this.renderer.setClearColor(0xf7d9aa);
     if (this.scene.fog) {
-      (this.scene.fog as Fog).color = new Color(0x87CEEB);
-      (this.scene.fog as Fog).near = 50;
-      (this.scene.fog as Fog).far = 200;
-    }
-    
-    // Reset water color
-    if (this.waterMesh.material instanceof ShaderMaterial) {
-      this.waterMesh.material.uniforms.waterColor.value = new Color(0x006994);
+      (this.scene.fog as Fog).color = new Color(0xf7d9aa);
+      (this.scene.fog as Fog).near = 100;
+      (this.scene.fog as Fog).far = 950;
     }
   }
 }
