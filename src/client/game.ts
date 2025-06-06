@@ -38,8 +38,15 @@ export class Game {
   private personalityDisplay!: HTMLElement;
   private quoteDisplay!: HTMLElement;
   private leaderboardList!: HTMLElement;
+  private fullLeaderboardList!: HTMLElement;
   private gameOverText!: HTMLElement;
   private launchButton!: HTMLElement;
+  private leaderboardButton!: HTMLElement;
+  private instructionsButton!: HTMLElement;
+  private leaderboardScreen!: HTMLElement;
+  private instructionsScreen!: HTMLElement;
+  private closeLeaderboard!: HTMLElement;
+  private closeInstructions!: HTMLElement;
   private ticker!: Ticker;
 
   private state: GameState = 'loading';
@@ -59,6 +66,11 @@ export class Game {
     score: number;
     rank: number;
   } | null = null;
+
+  private leaderboardData: {
+    user: User;
+    score: number;
+  }[] = [];
 
   public async prepare(width: number, height: number, devicePixelRatio: number): Promise<void> {
     let initData: InitMessage;
@@ -87,6 +99,7 @@ export class Game {
 
     this.config = initData.postConfig;
     this.userAllTimeStats = initData.userAllTimeStats;
+    this.leaderboardData = initData.leaderboard;
 
     this.mainContainer = document.getElementById('container') as HTMLElement;
     this.scoreContainer = document.getElementById('score') as HTMLElement;
@@ -94,8 +107,15 @@ export class Game {
     this.personalityDisplay = document.getElementById('personality') as HTMLElement;
     this.quoteDisplay = document.getElementById('quote-display') as HTMLElement;
     this.leaderboardList = document.getElementById('leaderboard-list') as HTMLElement;
+    this.fullLeaderboardList = document.getElementById('full-leaderboard-list') as HTMLElement;
     this.gameOverText = document.getElementById('game-over-text') as HTMLElement;
     this.launchButton = document.getElementById('launch-button') as HTMLElement;
+    this.leaderboardButton = document.getElementById('leaderboard-button') as HTMLElement;
+    this.instructionsButton = document.getElementById('instructions-button') as HTMLElement;
+    this.leaderboardScreen = document.querySelector('.leaderboard-screen') as HTMLElement;
+    this.instructionsScreen = document.querySelector('.instructions-screen') as HTMLElement;
+    this.closeLeaderboard = document.getElementById('close-leaderboard') as HTMLElement;
+    this.closeInstructions = document.getElementById('close-instructions') as HTMLElement;
 
     this.updateLeaderboard(initData.leaderboard);
     this.scoreContainer.innerHTML = '0';
@@ -125,6 +145,23 @@ export class Game {
     window.addEventListener('frogQuote', (event: any) => {
       console.log('Received frog quote event:', event.detail);
       this.showQuote(event.detail.quote);
+    });
+
+    // Menu navigation
+    this.leaderboardButton.addEventListener('click', () => {
+      this.showLeaderboardScreen();
+    });
+
+    this.instructionsButton.addEventListener('click', () => {
+      this.showInstructionsScreen();
+    });
+
+    this.closeLeaderboard.addEventListener('click', () => {
+      this.hideLeaderboardScreen();
+    });
+
+    this.closeInstructions.addEventListener('click', () => {
+      this.hideInstructionsScreen();
     });
 
     // Power meter control - Mouse events
@@ -170,6 +207,23 @@ export class Game {
         this.launch();
       }
     });
+  }
+
+  private showLeaderboardScreen(): void {
+    this.leaderboardScreen.classList.add('show');
+    this.updateFullLeaderboard();
+  }
+
+  private hideLeaderboardScreen(): void {
+    this.leaderboardScreen.classList.remove('show');
+  }
+
+  private showInstructionsScreen(): void {
+    this.instructionsScreen.classList.add('show');
+  }
+
+  private hideInstructionsScreen(): void {
+    this.instructionsScreen.classList.remove('show');
   }
 
   public async start(): Promise<void> {
@@ -399,6 +453,7 @@ export class Game {
     }
     
     this.userAllTimeStats = data.userAllTimeStats;
+    this.leaderboardData = data.leaderboard;
     this.updateLeaderboard(data.leaderboard);
   }
 
@@ -461,8 +516,9 @@ export class Game {
       score: number;
     }[]
   ) {
+    // Update compact leaderboard
     this.leaderboardList.innerHTML = '';
-    leaderboard.forEach((leaderboardItem, index) => {
+    leaderboard.slice(0, 4).forEach((leaderboardItem, index) => {
       const leaderboardItemElement = document.createElement('div');
       leaderboardItemElement.classList.add('leaderboard-item');
 
@@ -477,6 +533,58 @@ export class Game {
       leaderboardItemElement.appendChild(userText);
 
       this.leaderboardList.appendChild(leaderboardItemElement);
+    });
+
+    // Store for full leaderboard
+    this.leaderboardData = leaderboard;
+  }
+
+  private updateFullLeaderboard(): void {
+    this.fullLeaderboardList.innerHTML = '';
+    
+    if (this.leaderboardData.length === 0) {
+      const emptyMessage = document.createElement('div');
+      emptyMessage.style.textAlign = 'center';
+      emptyMessage.style.padding = '40px';
+      emptyMessage.style.color = '#2F4F2F';
+      emptyMessage.style.fontSize = '18px';
+      emptyMessage.style.fontWeight = 'bold';
+      emptyMessage.innerHTML = '🐸 No frog launchers yet! Be the first to launch! 🐸';
+      this.fullLeaderboardList.appendChild(emptyMessage);
+      return;
+    }
+
+    this.leaderboardData.forEach((leaderboardItem, index) => {
+      const leaderboardItemElement = document.createElement('div');
+      leaderboardItemElement.classList.add('full-leaderboard-item');
+
+      const rankEmojis = ['👑', '🥈', '🥉'];
+      const rank = rankEmojis[index] || '🐸';
+      
+      const rankElement = document.createElement('div');
+      rankElement.classList.add('rank');
+      rankElement.innerHTML = `${rank}<br/>#${index + 1}`;
+      leaderboardItemElement.appendChild(rankElement);
+
+      const img = document.createElement('img');
+      img.src = leaderboardItem.user.snoovatarUrl;
+      leaderboardItemElement.appendChild(img);
+      
+      const infoElement = document.createElement('div');
+      infoElement.classList.add('info');
+      
+      const usernameElement = document.createElement('div');
+      usernameElement.classList.add('username');
+      usernameElement.innerHTML = leaderboardItem.user.username;
+      infoElement.appendChild(usernameElement);
+      
+      const scoreElement = document.createElement('div');
+      scoreElement.classList.add('score');
+      scoreElement.innerHTML = `${leaderboardItem.score} points`;
+      infoElement.appendChild(scoreElement);
+      
+      leaderboardItemElement.appendChild(infoElement);
+      this.fullLeaderboardList.appendChild(leaderboardItemElement);
     });
   }
 }
