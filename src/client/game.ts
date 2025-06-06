@@ -141,26 +141,34 @@ export class Game {
   }
 
   private setupEventListeners(): void {
-    // Listen for frog quotes - FIXED to properly handle all quote types
+    // Listen for frog quotes
     window.addEventListener('frogQuote', (event: any) => {
       console.log('Received frog quote event:', event.detail);
       this.showQuote(event.detail.quote);
     });
 
-    // Menu navigation
-    this.leaderboardButton.addEventListener('click', () => {
+    // Menu navigation - FIXED: Prevent event propagation
+    this.leaderboardButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.showLeaderboardScreen();
     });
 
-    this.instructionsButton.addEventListener('click', () => {
+    this.instructionsButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.showInstructionsScreen();
     });
 
-    this.closeLeaderboard.addEventListener('click', () => {
+    this.closeLeaderboard.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.hideLeaderboardScreen();
     });
 
-    this.closeInstructions.addEventListener('click', () => {
+    this.closeInstructions.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.hideInstructionsScreen();
     });
 
@@ -266,9 +274,9 @@ export class Game {
   }
 
   private getPowerColor(): string {
-    if (this.power < 30) return '#ff4444';
-    if (this.power < 70) return '#ffaa44';
-    return '#44ff44';
+    if (this.power < 30) return '#ef4444';
+    if (this.power < 70) return '#f97316';
+    return '#22c55e';
   }
 
   private updateFrogFlight(deltaTime: number): void {
@@ -516,6 +524,8 @@ export class Game {
       score: number;
     }[]
   ) {
+    console.log('Updating leaderboard with data:', leaderboard); // Debug logging
+    
     // Update compact leaderboard
     this.leaderboardList.innerHTML = '';
     leaderboard.slice(0, 4).forEach((leaderboardItem, index) => {
@@ -546,9 +556,10 @@ export class Game {
       const emptyMessage = document.createElement('div');
       emptyMessage.style.textAlign = 'center';
       emptyMessage.style.padding = '40px';
-      emptyMessage.style.color = '#2F4F2F';
+      emptyMessage.style.color = '#ffffff';
       emptyMessage.style.fontSize = '18px';
       emptyMessage.style.fontWeight = 'bold';
+      emptyMessage.style.textShadow = '2px 2px 4px rgba(22, 101, 52, 0.8)';
       emptyMessage.innerHTML = '🐸 No frog launchers yet! Be the first to launch! 🐸';
       this.fullLeaderboardList.appendChild(emptyMessage);
       return;
