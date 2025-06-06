@@ -2,7 +2,6 @@ import { Easing, Tween, update as tweenjsUpdate } from '@tweenjs/tween.js';
 import Stats from 'three/examples/jsm/libs/stats.module';
 import { Vector3 } from 'three';
 import { Frog } from './frog';
-import { Obstacle, ObstacleType } from './obstacle';
 import { Stage } from './stage';
 import { Ticker } from './ticker';
 import { getEnv } from './utils/env';
@@ -11,7 +10,7 @@ import type { PostConfig, FrogPersonality, FrogEffect } from '../shared/types/po
 import { User } from '../shared/types/user';
 import { InitMessage } from '../shared/types/message';
 
-type GameState = 'loading' | 'ready' | 'aiming' | 'flying' | 'story_pause' | 'ended';
+type GameState = 'loading' | 'ready' | 'aiming' | 'flying' | 'ended';
 
 const FROG_PERSONALITIES: FrogPersonality[] = [
   'dramatic', 'zen', 'chaotic', 'sleepy', 'confident', 'anxious', 'philosophical', 'rebellious'
@@ -28,18 +27,7 @@ const SILLY_ACHIEVEMENTS = [
   "💪 Confidence Incarnate! (No thanks to your launching)",
   "😰 Anxiety Overcomer! (Survived your incompetence)",
   "🤔 Philosophical Frog Sage! (Questions your life choices)",
-  "😤 Rebellious Leap Legend! (Defied your expectations)",
-  "📚 Story Survivor! (Endured the longest tale ever told)",
-  "🍄 Mushroom Bouncer! (Achieved maximum boing)",
-  "⚡ Speed Demon! (Faster than your reflexes)",
-  "🌪️ Chaos Master! (Embraced the madness)",
-  "🤯 Mind Blown! (By philosophical revelations)"
-];
-
-const OBSTACLE_TYPES: ObstacleType[] = [
-  'storyteller', 'bouncy_mushroom', 'speed_boost', 'slow_motion', 
-  'teleporter', 'multiplier', 'confusion_cloud', 'gravity_well', 
-  'wind_tunnel', 'rubber_wall', 'philosopher_stone', 'chaos_orb'
+  "😤 Rebellious Leap Legend! (Defied your expectations)"
 ];
 
 export class Game {
@@ -52,24 +40,17 @@ export class Game {
   private leaderboardList!: HTMLElement;
   private gameOverText!: HTMLElement;
   private launchButton!: HTMLElement;
-  private storyModal!: HTMLElement;
-  private storyText!: HTMLElement;
-  private continueButton!: HTMLElement;
   private ticker!: Ticker;
 
   private state: GameState = 'loading';
   private stage!: Stage;
   private currentFrog!: Frog;
-  private obstacles: Obstacle[] = [];
   private totalScore: number = 0;
-  private scoreMultiplier: number = 1;
   private launchCount: number = 0;
   private power: number = 0;
   private angle: number = 0;
   private powerIncreasing: boolean = true;
   private isCharging: boolean = false;
-  private currentStoryIndex: number = 0;
-  private currentStoryParts: string[] = [];
 
   private stats!: Stats;
   private config!: PostConfig;
@@ -115,9 +96,6 @@ export class Game {
     this.leaderboardList = document.getElementById('leaderboard-list') as HTMLElement;
     this.gameOverText = document.getElementById('game-over-text') as HTMLElement;
     this.launchButton = document.getElementById('launch-button') as HTMLElement;
-    this.storyModal = document.getElementById('story-modal') as HTMLElement;
-    this.storyText = document.getElementById('story-text') as HTMLElement;
-    this.continueButton = document.getElementById('continue-button') as HTMLElement;
 
     this.updateLeaderboard(initData.leaderboard);
     this.scoreContainer.innerHTML = '0';
@@ -126,7 +104,6 @@ export class Game {
     this.stage.resize(width, height);
 
     this.setupEventListeners();
-    this.spawnObstacles();
 
     if (getEnv().MODE === 'development') {
       this.stats = Stats();
@@ -144,7 +121,7 @@ export class Game {
   }
 
   private setupEventListeners(): void {
-    // Listen for frog quotes
+    // Listen for frog quotes - FIXED to properly handle all quote types
     window.addEventListener('frogQuote', (event: any) => {
       console.log('Received frog quote event:', event.detail);
       this.showQuote(event.detail.quote);
@@ -179,20 +156,11 @@ export class Game {
       }
     });
 
-    // Story modal continue button
-    this.continueButton.addEventListener('click', () => {
-      this.continueStory();
-    });
-
     // Keyboard support
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && this.state === 'aiming' && !this.isCharging) {
         e.preventDefault();
-        if (this.state === 'aiming' && !this.isCharging) {
-          this.startPowerMeter();
-        } else if (this.state === 'story_pause') {
-          this.continueStory();
-        }
+        this.startPowerMeter();
       }
     });
 
@@ -202,33 +170,6 @@ export class Game {
         this.launch();
       }
     });
-  }
-
-  private spawnObstacles(): void {
-    // Clear existing obstacles
-    this.obstacles.forEach(obstacle => {
-      this.stage.remove(obstacle.getMesh());
-    });
-    this.obstacles = [];
-
-    // Spawn obstacles in a grid pattern with some randomness
-    for (let i = 0; i < 15; i++) {
-      const obstacleType = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)]!;
-      
-      // Create positions in a rough grid but with randomness
-      const gridX = (i % 5) - 2; // -2 to 2
-      const gridZ = Math.floor(i / 5) - 1; // -1 to 1
-      
-      const position = new Vector3(
-        gridX * 8 + (Math.random() - 0.5) * 4, // Spread out with randomness
-        0,
-        gridZ * 12 + 10 + (Math.random() - 0.5) * 6 // In front of launch pad
-      );
-
-      const obstacle = new Obstacle(obstacleType, position);
-      this.obstacles.push(obstacle);
-      this.stage.add(obstacle.getMesh());
-    }
   }
 
   public async start(): Promise<void> {
@@ -285,148 +226,12 @@ export class Game {
       this.config.launch.bounceDecay
     );
 
-    // Check obstacle collisions
-    this.checkObstacleCollisions();
-
     if (landed) {
       this.handleFrogLanding();
     }
 
     // Follow frog with camera
     this.stage.followFrog(this.currentFrog.position);
-  }
-
-  private checkObstacleCollisions(): void {
-    if (!this.currentFrog || !this.currentFrog.isFlying) return;
-
-    for (const obstacle of this.obstacles) {
-      if (obstacle.checkCollision(this.currentFrog.position)) {
-        const result = obstacle.trigger();
-        
-        if (result.message) {
-          if (result.requiresInput) {
-            this.startStorySequence(result.message);
-          } else {
-            this.showQuote(result.message);
-          }
-        }
-
-        this.applyObstacleEffect(result.effect);
-        break; // Only one collision per frame
-      }
-    }
-  }
-
-  private applyObstacleEffect(effect: any): void {
-    if (!this.currentFrog) return;
-
-    switch (effect.type) {
-      case 'bounce':
-        // Super bounce
-        this.currentFrog.velocity.y = Math.max(this.currentFrog.velocity.y, effect.magnitude * 5);
-        this.currentFrog.velocity.x *= 1.2;
-        this.currentFrog.velocity.z *= 1.2;
-        break;
-
-      case 'speed':
-        // Speed boost
-        this.currentFrog.velocity.multiplyScalar(effect.magnitude);
-        break;
-
-      case 'slow':
-        // Slow motion
-        this.currentFrog.velocity.multiplyScalar(effect.magnitude);
-        break;
-
-      case 'teleport':
-        // Random teleportation
-        this.currentFrog.position.set(
-          (Math.random() - 0.5) * effect.magnitude,
-          this.currentFrog.position.y + 5,
-          this.currentFrog.position.z + (Math.random() - 0.5) * effect.magnitude
-        );
-        break;
-
-      case 'multiply':
-        // Score multiplier
-        this.scoreMultiplier *= effect.magnitude;
-        this.showQuote(`💰 Score multiplier is now ${this.scoreMultiplier}x! 💰`);
-        break;
-
-      case 'confuse':
-        // Reverse controls (affects velocity)
-        this.currentFrog.velocity.x *= -1;
-        this.currentFrog.velocity.z *= -1;
-        break;
-
-      case 'gravity':
-        // Gravity well effect
-        this.currentFrog.velocity.y -= effect.magnitude;
-        break;
-
-      case 'wind':
-        // Wind tunnel effect
-        const windDirection = new Vector3(
-          (Math.random() - 0.5) * 2,
-          0,
-          (Math.random() - 0.5) * 2
-        ).normalize();
-        this.currentFrog.velocity.add(windDirection.multiplyScalar(effect.magnitude * 3));
-        break;
-
-      case 'rubber':
-        // Rubber wall bounce
-        this.currentFrog.velocity.x *= -effect.magnitude;
-        this.currentFrog.velocity.z *= -effect.magnitude;
-        this.currentFrog.velocity.y = Math.abs(this.currentFrog.velocity.y) * effect.magnitude;
-        break;
-
-      case 'chaos':
-        // Complete chaos
-        this.currentFrog.velocity.set(
-          (Math.random() - 0.5) * effect.magnitude * 10,
-          Math.random() * effect.magnitude * 5,
-          (Math.random() - 0.5) * effect.magnitude * 10
-        );
-        this.currentFrog.applyEffect({
-          type: 'rainbow',
-          duration: 5000,
-          magnitude: 1
-        });
-        break;
-    }
-  }
-
-  private startStorySequence(story: string): void {
-    // Split story into sentences for dramatic effect
-    this.currentStoryParts = story.split('...').filter(part => part.trim());
-    this.currentStoryIndex = 0;
-    this.updateState('story_pause');
-    this.showStoryPart();
-  }
-
-  private showStoryPart(): void {
-    if (this.currentStoryIndex < this.currentStoryParts.length) {
-      this.storyText.textContent = this.currentStoryParts[this.currentStoryIndex]! + '...';
-      this.storyModal.classList.add('show');
-    } else {
-      this.endStorySequence();
-    }
-  }
-
-  private continueStory(): void {
-    this.currentStoryIndex++;
-    if (this.currentStoryIndex < this.currentStoryParts.length) {
-      this.showStoryPart();
-    } else {
-      this.endStorySequence();
-    }
-  }
-
-  private endStorySequence(): void {
-    this.storyModal.classList.remove('show');
-    this.updateState('flying');
-    this.showQuote("📚 Story complete! The frog is now enlightened... or confused! 📚");
   }
 
   private render(): void {
@@ -452,16 +257,10 @@ export class Game {
 
   private async startGame(): Promise<void> {
     this.totalScore = 0;
-    this.scoreMultiplier = 1;
     this.launchCount = 0;
     this.updateScore();
     this.updateState('aiming');
     this.spawnNewFrog();
-    this.resetObstacles();
-  }
-
-  private resetObstacles(): void {
-    this.obstacles.forEach(obstacle => obstacle.reset());
   }
 
   private spawnNewFrog(): void {
@@ -551,35 +350,27 @@ export class Game {
   }
 
   private handleFrogLanding(): void {
-    const baseFrogScore = this.currentFrog.getScore();
-    const finalScore = Math.floor(baseFrogScore * this.scoreMultiplier);
-    this.totalScore += finalScore;
+    const frogScore = this.currentFrog.getScore();
+    this.totalScore += frogScore;
     this.updateScore();
     
     // Show score with sarcastic comment
     const scoreComments = [
-      `🎯 Landed! +${finalScore} points! (The frog is unimpressed)`,
-      `💰 Score: +${finalScore}! (Could've been better, says the frog)`,
-      `🏆 +${finalScore} points! (The frog thinks you got lucky)`,
-      `⭐ ${finalScore} points earned! (Frog: "I did all the work")`
+      `🎯 Landed! +${frogScore} points! (The frog is unimpressed)`,
+      `💰 Score: +${frogScore}! (Could've been better, says the frog)`,
+      `🏆 +${frogScore} points! (The frog thinks you got lucky)`,
+      `⭐ ${frogScore} points earned! (Frog: "I did all the work")`
     ];
-    
-    if (this.scoreMultiplier > 1) {
-      scoreComments.push(`🔥 MULTIPLIED! +${finalScore} points! (${this.scoreMultiplier}x bonus!) 🔥`);
-    }
     
     const comment = scoreComments[Math.floor(Math.random() * scoreComments.length)]!;
     this.showQuote(comment);
     
     // Show achievement for special scores
-    if (finalScore > 300) {
+    if (frogScore > 200) {
       setTimeout(() => {
         this.showAchievement();
       }, 2000);
     }
-
-    // Reset multiplier for next frog
-    this.scoreMultiplier = 1;
 
     setTimeout(() => {
       if (this.launchCount >= 5) {
@@ -588,7 +379,7 @@ export class Game {
         this.updateState('aiming');
         this.spawnNewFrog();
       }
-    }, 3000);
+    }, 3000); // Longer delay to see landing quotes
   }
 
   private showAchievement(): void {
@@ -627,7 +418,6 @@ export class Game {
     }
 
     setTimeout(async () => {
-      this.spawnObstacles(); // Respawn obstacles in new positions
       await this.startGame();
     }, 1000);
   }
@@ -655,14 +445,14 @@ export class Game {
   }
 
   private showQuote(quote: string): void {
-    console.log('Showing quote:', quote);
+    console.log('Showing quote:', quote); // Debug logging
     
     this.quoteDisplay.innerHTML = quote;
     this.quoteDisplay.classList.add('show');
     
     setTimeout(() => {
       this.quoteDisplay.classList.remove('show');
-    }, 4000);
+    }, 4000); // Longer display time for better readability
   }
 
   private updateLeaderboard(
