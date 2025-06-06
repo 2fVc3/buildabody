@@ -14,6 +14,7 @@ export class Stage {
   private scene: Scene;
   private renderer!: WebGLRenderer;
   private camera!: OrthographicCamera;
+  private originalCameraPosition: { x: number; y: number; z: number };
 
   private config: PostConfig;
 
@@ -26,6 +27,12 @@ export class Stage {
     this.setupCamera();
     this.setupDirectionalLight();
     this.setupAmbientLight();
+    
+    this.originalCameraPosition = {
+      x: this.camera.position.x,
+      y: this.camera.position.y,
+      z: this.camera.position.z
+    };
   }
 
   public render(): void {
@@ -98,5 +105,33 @@ export class Stage {
       .to({ y: position.y + offset }, duration)
       .easing(Easing.Cubic.Out)
       .start();
+  }
+
+  public shakeCamera(duration: number): void {
+    const originalPosition = {
+      x: this.camera.position.x,
+      y: this.camera.position.y,
+      z: this.camera.position.z
+    };
+
+    // Create a series of random shake movements
+    const shakeIntensity = 2;
+    const shakeCount = 20;
+    const shakeDuration = duration / shakeCount;
+
+    for (let i = 0; i < shakeCount; i++) {
+      const delay = i * shakeDuration;
+      const isLast = i === shakeCount - 1;
+      
+      new Tween(this.camera.position)
+        .to({
+          x: isLast ? originalPosition.x : originalPosition.x + (Math.random() - 0.5) * shakeIntensity,
+          y: isLast ? originalPosition.y : originalPosition.y + (Math.random() - 0.5) * shakeIntensity,
+          z: isLast ? originalPosition.z : originalPosition.z + (Math.random() - 0.5) * shakeIntensity
+        }, shakeDuration)
+        .delay(delay)
+        .easing(isLast ? Easing.Elastic.Out : Easing.Linear.None)
+        .start();
+    }
   }
 }

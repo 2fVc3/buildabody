@@ -6,13 +6,13 @@ import { defineConfig } from '@devvit/server';
 import { postConfigNew } from '../server/core/post';
 
 defineConfig({
-  name: 'French Fry Stacker',
+  name: '🎪 Chaotic Jenga Circus 🎪',
   entry: 'index.html',
   height: 'tall',
   menu: { enable: false },
 });
 
-export const Preview: Devvit.BlockComponent<{ text?: string }> = ({ text = 'Loading...' }) => {
+export const Preview: Devvit.BlockComponent<{ text?: string }> = ({ text = 'Loading the chaos...' }) => {
   return (
     <zstack width={'100%'} height={'100%'} alignment="center middle">
       <vstack width={'100%'} height={'100%'} alignment="center middle">
@@ -34,7 +34,7 @@ export const Preview: Devvit.BlockComponent<{ text?: string }> = ({ text = 'Load
 };
 
 Devvit.addMenuItem({
-  label: 'French Fry Stacker: New Game',
+  label: '🎪 Create Chaotic Jenga Circus 🎪',
   location: 'subreddit',
   forUserType: 'moderator',
   async onPress(event, context) {
@@ -43,7 +43,7 @@ Devvit.addMenuItem({
     try {
       const subreddit = await reddit.getCurrentSubreddit();
       const post = await reddit.submitPost({
-        title: 'French Fry Stacker',
+        title: '🎪 Chaotic Jenga Circus - Defy Physics & Logic! 🎪',
         subredditName: subreddit.name,
         preview: <Preview />,
       });
@@ -57,11 +57,11 @@ Devvit.addMenuItem({
         postId: post.id,
       });
 
-      ui.showToast({ text: 'Created game!' });
+      ui.showToast({ text: '🎪 Chaos has been unleashed! 🎪' });
       await ui.navigateTo(post.url);
     } catch (error) {
       ui.showToast({ 
-        text: `Error creating game: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        text: `💥 Chaos creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         type: 'error'
       });
     }

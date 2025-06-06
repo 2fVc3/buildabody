@@ -10,6 +10,7 @@ export class Block {
   private mesh: Mesh;
   private material: MeshLambertMaterial;
   private originalScale: Vector3;
+  private originalColor: number = 0xDEB887;
 
   constructor(scale: Vector3 | undefined = undefined) {
     // Create a wooden material like in the image
@@ -61,7 +62,10 @@ export class Block {
   // prettier-ignore
   public get color(): number { return this.material.color.getHex(); }
   // prettier-ignore
-  public set color(value: number) { this.material.color.set(value); }
+  public set color(value: number) { 
+    this.originalColor = value;
+    this.material.color.set(value); 
+  }
 
   public getMesh(): Mesh {
     return this.mesh;
@@ -78,8 +82,29 @@ export class Block {
         this.scale.multiplyScalar(1 - effect.magnitude);
         break;
       case 'rainbow':
-        // Wooden color variations
-        this.material.color.setHSL(0.08 + Math.random() * 0.04, 0.3, 0.7);
+        // Cycle through rainbow colors
+        const time = Date.now() * 0.001;
+        const hue = (time + Math.random()) % 1;
+        this.material.color.setHSL(hue, 0.8, 0.6);
+        
+        // Set up continuous rainbow cycling
+        const rainbowInterval = setInterval(() => {
+          if (this.effect.type !== 'rainbow') {
+            clearInterval(rainbowInterval);
+            this.material.color.set(this.originalColor);
+            return;
+          }
+          const currentTime = Date.now() * 0.001;
+          const currentHue = (currentTime * 0.5 + Math.random() * 0.1) % 1;
+          this.material.color.setHSL(currentHue, 0.8, 0.6);
+        }, 100);
+        
+        // Stop rainbow after duration
+        setTimeout(() => {
+          clearInterval(rainbowInterval);
+          this.effect = { type: 'none', duration: 0, magnitude: 0 };
+          this.material.color.set(this.originalColor);
+        }, effect.duration);
         break;
     }
   }

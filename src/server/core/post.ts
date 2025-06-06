@@ -21,62 +21,62 @@ const defaultPostConfig: PostConfig = {
         'b': 135, // Burlywood blue component
       },
       'range': {
-        'r': 30,  // Variation towards brown
-        'g': 20,  // Variation in green
-        'b': 15,  // Variation in blue
+        'r': 50,  // More variation for chaos
+        'g': 40,  // More variation for chaos
+        'b': 30,  // More variation for chaos
       },
       'intensity': {
-        'r': 0.1,
-        'g': 0.15,
-        'b': 0.1,
+        'r': 0.2,
+        'g': 0.25,
+        'b': 0.15,
       },
     },
   },
   'gameplay': {
-    'distance': 6, // Movement range
+    'distance': 8, // Wider movement range for more chaos
     'speed': {
-      'min': 4,
-      'max': 8,
-      'multiplier': 0.02,
+      'min': 5,
+      'max': 10,
+      'multiplier': 0.03,
     },
-    'accuracy': 0.3,
-    'effectProbability': 0.15,
+    'accuracy': 0.25, // More forgiving for chaos mode
+    'effectProbability': 0.3, // More effects for more chaos
   },
   'instructions': {
-    'height': 5,
+    'height': 4, // Show instructions for fewer layers
   },
   'camera': {
     'near': -100,
     'far': 1000,
-    'viewSize': 20, // Good view of the Jenga tower
+    'viewSize': 22, // Slightly wider view for the chaos
     'position': {
-      'x': 12, // Angled view like the image
-      'y': 15,
-      'z': 12,
+      'x': 14, // Better angle for viewing the madness
+      'y': 16,
+      'z': 14,
     },
     'lookAt': {
       'x': 0,
-      'y': 3,
+      'y': 4,
       'z': 0,
     },
-    'offset': 6,
+    'offset': 7,
   },
   'background': {
-    'color': '0xF5F5DC', // Beige background like wooden table
+    'color': '0xF0F8FF', // Alice blue for a dreamy circus feel
   },
   'light': {
     'directional': {
       'color': '0xFFFFFF',
-      'intensity': 0.8,
+      'intensity': 0.9, // Brighter for more dramatic shadows
       'position': {
-        'x': 10,
-        'y': 20,
-        'z': 10,
+        'x': 12,
+        'y': 25,
+        'z': 12,
       },
     },
     'ambient': {
-      'color': '0xFFFFFF',
-      'intensity': 0.4,
+      'color': '0xFFE4E1', // Misty rose for warm ambient light
+      'intensity': 0.5,
       'position': {
         'x': 0,
         'y': 0,
