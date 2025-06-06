@@ -6,7 +6,6 @@ import {
   Vector3,
   Color,
   AdditiveBlending,
-  Group,
   CylinderGeometry,
   MeshLambertMaterial,
   BoxGeometry,

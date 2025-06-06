@@ -5,8 +5,6 @@ import {
   Vector2,
   Vector3,
   Color,
-  TextureLoader,
-  RepeatWrapping,
   Clock,
   DoubleSide
 } from 'three';

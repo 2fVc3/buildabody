@@ -17,12 +17,12 @@ import {
   TorusGeometry,
   Color,
   Fog,
-  SkyBox,
-  CubeTextureLoader,
-  PMREMGenerator,
-  ACESFilmicToneMapping,
-  Clock
+  Clock,
+  ShaderMaterial,
+  PCFSoftShadowMap,
+  ACESFilmicToneMapping
 } from 'three';
+import * as THREE from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
 import { Water } from './water';
 import { SkyShader } from './shaders/skyShader';
@@ -117,7 +117,7 @@ export class Stage {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setClearColor(parseInt(this.config.background.skyColor, 16), 1);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = PCFSoftShadowMap;
     this.renderer.toneMapping = ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.container.appendChild(this.renderer.domElement);

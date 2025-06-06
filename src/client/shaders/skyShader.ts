@@ -83,8 +83,7 @@ export class SkyShader {
           
           gl_FragColor = vec4(color, 1.0);
         }
-      `,
-      side: 2 // DoubleSide
+      `
     });
   }
 }

@@ -1,4 +1,4 @@
-import { ShaderMaterial, Vector3, Color, TextureLoader, RepeatWrapping } from 'three';
+import { ShaderMaterial, Color } from 'three';
 
 export class GroundShader {
   public static createMaterial(): ShaderMaterial {
