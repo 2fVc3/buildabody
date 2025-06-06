@@ -5,85 +5,74 @@ import { RequestContext } from '@devvit/server';
 const getPostConfigKey = (postId: string) => `post_config:${postId}` as const;
 
 const defaultPostConfig: PostConfig = {
-  'block': {
-    'base': {
-      'color': '0xDEB887', // Burlywood color like wooden Jenga blocks
-      'scale': {
-        'x': 4, // Jenga block width
-        'y': 1.2, // Jenga block height
-        'z': 1.2, // Jenga block depth
-      },
+  frog: {
+    baseColor: '0x32CD32', // Lime green
+    size: {
+      x: 1,
+      y: 0.8,
+      z: 1.2
     },
-    'colors': {
-      'base': {
-        'r': 222, // Burlywood red component
-        'g': 184, // Burlywood green component
-        'b': 135, // Burlywood blue component
-      },
-      'range': {
-        'r': 50,  // More variation for chaos
-        'g': 40,  // More variation for chaos
-        'b': 30,  // More variation for chaos
-      },
-      'intensity': {
-        'r': 0.2,
-        'g': 0.25,
-        'b': 0.15,
-      },
-    },
+    personalities: ['dramatic', 'zen', 'chaotic', 'sleepy', 'confident', 'anxious', 'philosophical', 'rebellious'],
+    effects: [
+      { type: 'rainbow', duration: 3000, magnitude: 1 },
+      { type: 'giant', duration: 5000, magnitude: 0.5 },
+      { type: 'tiny', duration: 5000, magnitude: 0.3 },
+      { type: 'bouncy', duration: 4000, magnitude: 1.5 },
+      { type: 'glowing', duration: 4000, magnitude: 1 },
+      { type: 'spinning', duration: 3000, magnitude: 2 },
+      { type: 'none', duration: 0, magnitude: 0 }
+    ]
   },
-  'gameplay': {
-    'distance': 8, // Wider movement range for more chaos
-    'speed': {
-      'min': 5,
-      'max': 10,
-      'multiplier': 0.03,
-    },
-    'accuracy': 0.25, // More forgiving for chaos mode
-    'effectProbability': 0.3, // More effects for more chaos
+  launch: {
+    minPower: 10,
+    maxPower: 100,
+    gravity: 9.8,
+    bounceDecay: 0.6,
+    maxBounces: 5
   },
-  'instructions': {
-    'height': 4, // Show instructions for fewer layers
+  scoring: {
+    landingBonus: 50,
+    bounceMultiplier: 10,
+    personalityBonus: 25,
+    effectBonus: 15,
+    distanceMultiplier: 10
   },
-  'camera': {
-    'near': -100,
-    'far': 1000,
-    'viewSize': 22, // Slightly wider view for the chaos
-    'position': {
-      'x': 14, // Better angle for viewing the madness
-      'y': 16,
-      'z': 14,
+  camera: {
+    near: -100,
+    far: 1000,
+    viewSize: 25,
+    position: {
+      x: 15,
+      y: 20,
+      z: 15
     },
-    'lookAt': {
-      'x': 0,
-      'y': 4,
-      'z': 0,
+    lookAt: {
+      x: 0,
+      y: 0,
+      z: 0
     },
-    'offset': 7,
+    followSpeed: 0.1
   },
-  'background': {
-    'color': '0xF0F8FF', // Alice blue for a dreamy circus feel
+  background: {
+    color: '0x87CEEB', // Sky blue
+    skyColor: '0x87CEEB', // Sky blue
+    groundColor: '0x90EE90' // Light green
   },
-  'light': {
-    'directional': {
-      'color': '0xFFFFFF',
-      'intensity': 0.9, // Brighter for more dramatic shadows
-      'position': {
-        'x': 12,
-        'y': 25,
-        'z': 12,
-      },
+  light: {
+    directional: {
+      color: '0xFFFFFF',
+      intensity: 1.0,
+      position: {
+        x: 20,
+        y: 30,
+        z: 20
+      }
     },
-    'ambient': {
-      'color': '0xFFE4E1', // Misty rose for warm ambient light
-      'intensity': 0.5,
-      'position': {
-        'x': 0,
-        'y': 0,
-        'z': 0,
-      },
-    },
-  },
+    ambient: {
+      color: '0xFFFFE0', // Light yellow
+      intensity: 0.6
+    }
+  }
 };
 
 export const postConfigMaybeGet = async ({

@@ -6,6 +6,12 @@ import {
   OrthographicCamera,
   Scene,
   WebGLRenderer,
+  PlaneGeometry,
+  MeshLambertMaterial,
+  Mesh,
+  Vector3,
+  BoxGeometry,
+  CylinderGeometry,
 } from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
 
@@ -14,7 +20,7 @@ export class Stage {
   private scene: Scene;
   private renderer!: WebGLRenderer;
   private camera!: OrthographicCamera;
-  private originalCameraPosition: { x: number; y: number; z: number };
+  private originalCameraPosition: Vector3;
 
   private config: PostConfig;
 
@@ -25,14 +31,10 @@ export class Stage {
 
     this.setupRenderer(devicePixelRatio);
     this.setupCamera();
-    this.setupDirectionalLight();
-    this.setupAmbientLight();
+    this.setupLights();
+    this.setupEnvironment();
     
-    this.originalCameraPosition = {
-      x: this.camera.position.x,
-      y: this.camera.position.y,
-      z: this.camera.position.z
-    };
+    this.originalCameraPosition = this.camera.position.clone();
   }
 
   public render(): void {
@@ -64,74 +66,105 @@ export class Stage {
       alpha: false,
     });
     this.renderer.setPixelRatio(devicePixelRatio);
-    this.renderer.setClearColor(parseInt(this.config.background.color, 16), 1);
+    this.renderer.setClearColor(parseInt(this.config.background.skyColor, 16), 1);
     this.container.appendChild(this.renderer.domElement);
   }
 
   private setupCamera(): void {
-    const { near, far, position, lookAt, offset } = this.config.camera;
+    const { near, far, position, lookAt } = this.config.camera;
     this.camera = new OrthographicCamera();
     this.camera.near = near;
     this.camera.far = far;
     this.camera.position.set(position.x, position.y, position.z);
     this.camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
-    this.camera.position.y += offset;
   }
 
-  private setupDirectionalLight(): void {
+  private setupLights(): void {
+    // Directional light
     const { color, intensity, position } = this.config.light.directional;
     const directionalLight = new DirectionalLight(parseInt(color, 16), intensity);
     directionalLight.position.set(position.x, position.y, position.z);
     this.add(directionalLight);
-  }
 
-  private setupAmbientLight(): void {
-    const { color, intensity, position } = this.config.light.ambient;
-    const ambientLight = new AmbientLight(parseInt(color, 16), intensity);
-    ambientLight.position.set(position.x, position.y, position.z);
+    // Ambient light
+    const ambientLight = new AmbientLight(
+      parseInt(this.config.light.ambient.color, 16), 
+      this.config.light.ambient.intensity
+    );
     this.add(ambientLight);
   }
 
-  public setCamera(y: number): void {
-    new Tween(this.camera.position)
-      .to({ y: y + this.config.camera.offset }, 300)
-      .easing(Easing.Cubic.Out)
-      .start();
-  }
+  private setupEnvironment(): void {
+    // Ground plane
+    const groundGeometry = new PlaneGeometry(100, 100);
+    const groundMaterial = new MeshLambertMaterial({ 
+      color: parseInt(this.config.background.groundColor, 16) 
+    });
+    const ground = new Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = 0;
+    this.add(ground);
 
-  public resetCamera(duration: number): void {
-    const { position, offset } = this.config.camera;
-    new Tween(this.camera.position)
-      .to({ y: position.y + offset }, duration)
-      .easing(Easing.Cubic.Out)
-      .start();
-  }
+    // Launch pad
+    const padGeometry = new CylinderGeometry(2, 2, 0.2, 16);
+    const padMaterial = new MeshLambertMaterial({ color: 0x8B4513 }); // Saddle brown
+    const launchPad = new Mesh(padGeometry, padMaterial);
+    launchPad.position.set(0, 0.1, 0);
+    this.add(launchPad);
 
-  public shakeCamera(duration: number): void {
-    const originalPosition = {
-      x: this.camera.position.x,
-      y: this.camera.position.y,
-      z: this.camera.position.z
-    };
-
-    // Create a series of random shake movements
-    const shakeIntensity = 2;
-    const shakeCount = 20;
-    const shakeDuration = duration / shakeCount;
-
-    for (let i = 0; i < shakeCount; i++) {
-      const delay = i * shakeDuration;
-      const isLast = i === shakeCount - 1;
+    // Some decorative lily pads around the scene
+    for (let i = 0; i < 8; i++) {
+      const lilyPadGeometry = new CylinderGeometry(1, 1, 0.1, 8);
+      const lilyPadMaterial = new MeshLambertMaterial({ color: 0x228B22 }); // Forest green
+      const lilyPad = new Mesh(lilyPadGeometry, lilyPadMaterial);
       
-      new Tween(this.camera.position)
-        .to({
-          x: isLast ? originalPosition.x : originalPosition.x + (Math.random() - 0.5) * shakeIntensity,
-          y: isLast ? originalPosition.y : originalPosition.y + (Math.random() - 0.5) * shakeIntensity,
-          z: isLast ? originalPosition.z : originalPosition.z + (Math.random() - 0.5) * shakeIntensity
-        }, shakeDuration)
-        .delay(delay)
-        .easing(isLast ? Easing.Elastic.Out : Easing.Linear.None)
-        .start();
+      const angle = (i / 8) * Math.PI * 2;
+      const distance = 15 + Math.random() * 10;
+      lilyPad.position.set(
+        Math.cos(angle) * distance,
+        0.05,
+        Math.sin(angle) * distance
+      );
+      this.add(lilyPad);
     }
+
+    // Some random rocks for visual interest
+    for (let i = 0; i < 12; i++) {
+      const rockGeometry = new BoxGeometry(
+        0.5 + Math.random() * 1,
+        0.3 + Math.random() * 0.5,
+        0.5 + Math.random() * 1
+      );
+      const rockMaterial = new MeshLambertMaterial({ color: 0x696969 }); // Dim gray
+      const rock = new Mesh(rockGeometry, rockMaterial);
+      
+      rock.position.set(
+        (Math.random() - 0.5) * 40,
+        0.2,
+        (Math.random() - 0.5) * 40
+      );
+      rock.rotation.y = Math.random() * Math.PI * 2;
+      this.add(rock);
+    }
+  }
+
+  public followFrog(frogPosition: Vector3): void {
+    const targetPosition = new Vector3(
+      frogPosition.x + this.config.camera.position.x,
+      Math.max(this.config.camera.position.y, frogPosition.y + 5),
+      frogPosition.z + this.config.camera.position.z
+    );
+
+    new Tween(this.camera.position)
+      .to(targetPosition, 100)
+      .easing(Easing.Linear.None)
+      .start();
+  }
+
+  public resetCamera(): void {
+    new Tween(this.camera.position)
+      .to(this.originalCameraPosition, 1000)
+      .easing(Easing.Cubic.Out)
+      .start();
   }
 }

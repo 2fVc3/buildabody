@@ -10,44 +10,43 @@ export type RGB = {
   b: number;
 };
 
-export type BlockEffect = {
-  type: 'grow' | 'shrink' | 'speed' | 'slow' | 'rainbow' | 'none';
+export type FrogPersonality = 
+  | 'dramatic' 
+  | 'zen' 
+  | 'chaotic' 
+  | 'sleepy' 
+  | 'confident' 
+  | 'anxious' 
+  | 'philosophical' 
+  | 'rebellious';
+
+export type FrogEffect = {
+  type: 'rainbow' | 'giant' | 'tiny' | 'bouncy' | 'glowing' | 'spinning' | 'none';
   duration: number;
   magnitude: number;
 };
 
-export type BlockBaseConfig = {
-  color: string;
-  scale: Vector3;
-  effect?: BlockEffect;
+export type FrogConfig = {
+  baseColor: string;
+  size: Vector3;
+  personalities: FrogPersonality[];
+  effects: FrogEffect[];
 };
 
-export type BlockColorsConfig = {
-  base: RGB;
-  range: RGB;
-  intensity: RGB;
+export type LaunchConfig = {
+  minPower: number;
+  maxPower: number;
+  gravity: number;
+  bounceDecay: number;
+  maxBounces: number;
 };
 
-export type BlockConfig = {
-  base: BlockBaseConfig;
-  colors: BlockColorsConfig;
-};
-
-export type SpeedConfig = {
-  min: number;
-  max: number;
-  multiplier: number;
-};
-
-export type GameplayConfig = {
-  distance: number;
-  speed: SpeedConfig;
-  accuracy: number;
-  effectProbability: number;
-};
-
-export type InstructionsConfig = {
-  height: number;
+export type ScoringConfig = {
+  landingBonus: number;
+  bounceMultiplier: number;
+  personalityBonus: number;
+  effectBonus: number;
+  distanceMultiplier: number;
 };
 
 export type CameraConfig = {
@@ -56,34 +55,31 @@ export type CameraConfig = {
   viewSize: number;
   position: Vector3;
   lookAt: Vector3;
-  offset: number;
+  followSpeed: number;
 };
 
 export type BackgroundConfig = {
   color: string;
-};
-
-export type DirectionalLightConfig = {
-  color: string;
-  intensity: number;
-  position: Vector3;
-};
-
-export type AmbientLightConfig = {
-  color: string;
-  intensity: number;
-  position: Vector3;
+  skyColor: string;
+  groundColor: string;
 };
 
 export type LightConfig = {
-  directional: DirectionalLightConfig;
-  ambient: AmbientLightConfig;
+  directional: {
+    color: string;
+    intensity: number;
+    position: Vector3;
+  };
+  ambient: {
+    color: string;
+    intensity: number;
+  };
 };
 
 export type PostConfig = {
-  block: BlockConfig;
-  gameplay: GameplayConfig;
-  instructions: InstructionsConfig;
+  frog: FrogConfig;
+  launch: LaunchConfig;
+  scoring: ScoringConfig;
   camera: CameraConfig;
   background: BackgroundConfig;
   light: LightConfig;
