@@ -43,6 +43,7 @@ export class Game {
   private launchButton!: HTMLElement;
   private leaderboardButton!: HTMLElement;
   private instructionsButton!: HTMLElement;
+  private startButton!: HTMLElement;
   private leaderboardScreen!: HTMLElement;
   private instructionsScreen!: HTMLElement;
   private closeLeaderboard!: HTMLElement;
@@ -112,6 +113,7 @@ export class Game {
     this.launchButton = document.getElementById('launch-button') as HTMLElement;
     this.leaderboardButton = document.getElementById('leaderboard-button') as HTMLElement;
     this.instructionsButton = document.getElementById('instructions-button') as HTMLElement;
+    this.startButton = document.getElementById('start-button') as HTMLElement;
     this.leaderboardScreen = document.querySelector('.leaderboard-screen') as HTMLElement;
     this.instructionsScreen = document.querySelector('.instructions-screen') as HTMLElement;
     this.closeLeaderboard = document.getElementById('close-leaderboard') as HTMLElement;
@@ -147,7 +149,7 @@ export class Game {
       this.showQuote(event.detail.quote);
     });
 
-    // Menu navigation - FIXED: Prevent event propagation and properly handle clicks
+    // Menu navigation - FIXED: Proper event handling
     this.leaderboardButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -160,6 +162,13 @@ export class Game {
       e.stopPropagation();
       console.log('Instructions button clicked');
       this.showInstructionsScreen();
+    });
+
+    this.startButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Start button clicked');
+      this.action();
     });
 
     this.closeLeaderboard.addEventListener('click', (e) => {
@@ -555,7 +564,7 @@ export class Game {
       const emptyMessage = document.createElement('div');
       emptyMessage.style.textAlign = 'center';
       emptyMessage.style.padding = '40px';
-      emptyMessage.style.color = 'var(--neutral-600)';
+      emptyMessage.style.color = 'var(--text-secondary)';
       emptyMessage.style.fontSize = '18px';
       emptyMessage.style.fontWeight = '600';
       emptyMessage.innerHTML = '🐸 No frog launchers yet! Be the first to launch! 🐸';
