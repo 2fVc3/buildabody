@@ -359,9 +359,10 @@ export class Frog {
     this.rotation.x += this.velocity.length() * deltaTime * 0.001;
     this.rotation.z += this.velocity.x * deltaTime * 0.001;
     
-    // Check for ground collision
-    if (this.position.y <= 0.5) {
-      this.position.y = 0.5;
+    // CRITICAL FIX: Proper ground collision with rolling instead of clipping
+    const groundLevel = 5; // Keep frog above ground level
+    if (this.position.y <= groundLevel) {
+      this.position.y = groundLevel; // CRITICAL: Keep frog ON the ground, not below
       
       if (Math.abs(this.velocity.y) > 0.5) {
         // Bounce
@@ -376,17 +377,28 @@ export class Frog {
         }
         return false; // Still flying
       } else {
-        // Landed
-        this.velocity.set(0, 0, 0);
-        this.isFlying = false;
+        // CRITICAL FIX: Landed - keep rolling on ground instead of stopping
+        this.velocity.y = 0;
         
-        // Show landing quote after a brief delay
-        setTimeout(() => {
-          this.sayLandingQuote();
-        }, 500);
-        
-        this.addLandingEffect();
-        return true; // Landed
+        // Add rolling motion on ground
+        if (Math.abs(this.velocity.x) > 0.1 || Math.abs(this.velocity.z) > 0.1) {
+          this.velocity.x *= 0.95; // Gradual slowdown
+          this.velocity.z *= 0.95;
+          this.rotation.x += this.velocity.length() * deltaTime * 0.002; // Rolling animation
+          return false; // Still rolling
+        } else {
+          // Completely stopped
+          this.velocity.set(0, 0, 0);
+          this.isFlying = false;
+          
+          // Show landing quote after a brief delay
+          setTimeout(() => {
+            this.sayLandingQuote();
+          }, 500);
+          
+          this.addLandingEffect();
+          return true; // Landed
+        }
       }
     }
     

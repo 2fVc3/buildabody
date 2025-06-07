@@ -570,7 +570,9 @@ export class Stage {
     const aspectRatio = WIDTH / HEIGHT;
 
     this.camera = new PerspectiveCamera(60, aspectRatio, 1, 10000);
-    this.camera.position.set(0, 150, 100);
+    // CRITICAL FIX: Perfect camera position to see the airplane clearly like in the image
+    this.camera.position.set(-100, 200, 100); // Behind and above the airplane
+    this.camera.lookAt(-40, 110, -250); // Look at the airplane position
   }
 
   private setupLights(): void {
@@ -954,10 +956,12 @@ export class Stage {
       
       console.log(`Camera following frog at: ${frogPos.x}, ${frogPos.y}, ${frogPos.z}`);
     } else if (!this.cameraFollowingFrog) {
-      // Return to airplane view
-      const targetPos = new Vector3(0, 150, 100);
+      // CRITICAL FIX: Return to perfect airplane view like in the image
+      const targetPos = new Vector3(-100, 200, 100); // Behind and above airplane
+      const targetLookAt = new Vector3(-40, 110, -250); // Look at airplane
+      
       this.camera.position.lerp(targetPos, 0.02);
-      this.camera.lookAt(0, 0, 0);
+      this.camera.lookAt(targetLookAt);
     }
   }
 
@@ -1036,9 +1040,9 @@ export class Stage {
   }
 
   public resetCamera(): void {
-    // Reset camera to default airplane world position
-    this.camera.position.set(0, 150, 100);
-    this.camera.lookAt(0, 0, 0);
+    // CRITICAL FIX: Reset camera to perfect airplane view like in the image
+    this.camera.position.set(-100, 200, 100); // Behind and above airplane
+    this.camera.lookAt(-40, 110, -250); // Look at airplane position
   }
 
   // CRITICAL FIX: Method to start the game
