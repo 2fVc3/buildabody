@@ -146,6 +146,11 @@ export class Game {
       this.updateGameStats(0, '1.0');
     });
 
+    window.addEventListener('gameOver', (event: any) => {
+      this.finalDistance = event.detail.distance;
+      this.handleGameOver(event.detail.score);
+    });
+
     // Listen for frog quotes
     window.addEventListener('frogQuote', (event: any) => {
       this.showQuote(event.detail.quote);

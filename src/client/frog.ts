@@ -35,7 +35,7 @@ const FROG_QUOTES = {
   anxious: [
     "😰 What if your terrible aim kills me?!",
     "🙈 This seems really high... ARE YOU EVEN QUALIFIED?!",
-    "😱 Did you even READ the instruction manual?!",
+    "😱 Did you even read the instruction manual?!",
     "🤞 Please don't let your incompetence be my doom..."
   ],
   philosophical: [
@@ -450,5 +450,21 @@ export class Frog {
       rebellious: 55     // Rule-breaking bonus
     };
     return bonuses[this.personality];
+  }
+
+  // Method to face the same direction as the plane
+  public faceDirection(direction: Vector3): void {
+    this.group.lookAt(this.position.clone().add(direction));
+  }
+
+  // Method to set position relative to plane
+  public setRelativePosition(planePosition: Vector3, planeRotation: any): void {
+    // Position frog on top of plane, facing forward
+    this.position.copy(planePosition);
+    this.position.y += 25; // On top
+    this.position.x -= 15; // Slightly back from cockpit
+    
+    // Face the same direction as the plane
+    this.rotation.copy(planeRotation);
   }
 }

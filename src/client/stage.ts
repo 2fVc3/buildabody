@@ -448,18 +448,21 @@ class EnemyPlane {
 
   constructor(planeType: PlaneType = 'normal') {
     this.airplane = new AirPlane(planeType);
-    this.speed = 2 + Math.random() * 3;
+    this.speed = 3 + Math.random() * 4; // Faster base speed
     this.direction = new Vector3(-1, 0, 0); // Flying towards player
     
-    // Position randomly in front of player
+    // Position in front of player on the same flight path
+    const playerY = 110; // Same height as player plane
     this.airplane.mesh.position.set(
-      200 + Math.random() * 300,
-      50 + Math.random() * 100,
-      (Math.random() - 0.5) * 400
+      400 + Math.random() * 200, // Far in front
+      playerY + (Math.random() - 0.5) * 60, // Similar height with variation
+      (Math.random() - 0.5) * 200 // Same Z range as player
     );
     
-    // Face towards player
+    // Face towards player (opposite direction)
     this.airplane.mesh.rotation.y = Math.PI;
+    
+    console.log(`Enemy plane spawned at: ${this.airplane.mesh.position.x}, ${this.airplane.mesh.position.y}, ${this.airplane.mesh.position.z}`);
   }
 
   update(): void {
@@ -472,8 +475,9 @@ class EnemyPlane {
     this.airplane.propeller.rotation.x += 0.3;
     
     // Remove if too far behind player
-    if (this.airplane.mesh.position.x < -300) {
+    if (this.airplane.mesh.position.x < -200) {
       this.active = false;
+      console.log('Enemy plane removed - too far behind');
     }
   }
 
@@ -481,7 +485,14 @@ class EnemyPlane {
     if (!this.active) return false;
     
     const distance = this.airplane.mesh.position.distanceTo(playerPosition);
-    return distance < 80; // Collision threshold
+    const collisionThreshold = 60; // Collision threshold
+    
+    if (distance < collisionThreshold) {
+      console.log(`Collision detected! Distance: ${distance}, Threshold: ${collisionThreshold}`);
+      return true;
+    }
+    
+    return false;
   }
 }
 
@@ -507,7 +518,7 @@ export class Stage {
   private planesAvoided: number = 0;
   private gameActive: boolean = true;
   private lastPlaneSpawn: number = 0;
-  private spawnInterval: number = 2000; // Start with 2 seconds between planes
+  private spawnInterval: number = 3000; // Start with 3 seconds between planes
 
   // Mouse tracking
   private mousePos = { x: 0, y: 0 };
@@ -669,9 +680,7 @@ export class Stage {
 
     // Update frog position to match plane
     if (this.frogOnPlane) {
-      this.frogOnPlane.position.copy(this.airplane.mesh.position);
-      this.frogOnPlane.position.y += 30; // On top of plane
-      this.frogOnPlane.position.x -= 10; // Slightly back from cockpit
+      this.frogOnPlane.setRelativePosition(this.airplane.mesh.position, this.airplane.mesh.rotation);
     }
   }
 
@@ -685,14 +694,14 @@ export class Stage {
     const personality = personalities[Math.floor(Math.random() * personalities.length)] as any;
     
     this.frogOnPlane = new Frog(personality);
-    this.frogOnPlane.getMesh().scale.set(0.3, 0.3, 0.3); // Smaller on plane
+    this.frogOnPlane.getMesh().scale.set(0.4, 0.4, 0.4); // Smaller on plane
     
-    // Position on top of plane
-    this.frogOnPlane.position.copy(this.airplane.mesh.position);
-    this.frogOnPlane.position.y += 30;
-    this.frogOnPlane.position.x -= 10;
+    // Position on top of plane and face forward
+    this.frogOnPlane.setRelativePosition(this.airplane.mesh.position, this.airplane.mesh.rotation);
     
     this.scene.add(this.frogOnPlane.getMesh());
+    
+    console.log(`Spawned ${personality} frog on plane`);
   }
 
   private spawnEnemyPlane(): void {
@@ -714,6 +723,8 @@ export class Stage {
     
     this.enemyPlanes.push(enemyPlane);
     this.scene.add(enemyPlane.airplane.mesh);
+    
+    console.log(`Spawned ${planeType} enemy plane`);
   }
 
   private updateEnemyPlanes(): void {
@@ -725,7 +736,7 @@ export class Stage {
       this.lastPlaneSpawn = currentTime;
       
       // Increase difficulty over time
-      this.spawnInterval = Math.max(500, this.spawnInterval - 50);
+      this.spawnInterval = Math.max(1000, this.spawnInterval - 100);
     }
 
     // Update existing planes
@@ -746,7 +757,7 @@ export class Stage {
         
         // Plane avoided - increase speed!
         this.planesAvoided++;
-        this.gameSpeed += 0.1;
+        this.gameSpeed += 0.2;
         
         // Dispatch event for UI update
         window.dispatchEvent(new CustomEvent('planeAvoided', { 
@@ -772,7 +783,7 @@ export class Stage {
 
     // Handle different plane effects
     const effect = enemyPlane.airplane.effect;
-    let launchPower = this.gameSpeed * 20; // Base power from speed
+    let launchPower = this.gameSpeed * 15; // Base power from speed
     
     switch (effect.type) {
       case 'destroyer':
@@ -850,8 +861,14 @@ export class Stage {
       } 
     }));
 
-    // Wait for frog to land, then reset
+    // Wait for frog to land, then calculate score and reset
     setTimeout(() => {
+      if (this.currentFrog) {
+        const score = this.currentFrog.getScore();
+        window.dispatchEvent(new CustomEvent('gameOver', { 
+          detail: { score, distance: Math.sqrt(this.currentFrog.position.x ** 2 + this.currentFrog.position.z ** 2) } 
+        }));
+      }
       this.resetGame();
     }, 8000);
   }
@@ -861,7 +878,7 @@ export class Stage {
     this.gameActive = true;
     this.gameSpeed = 1;
     this.planesAvoided = 0;
-    this.spawnInterval = 2000;
+    this.spawnInterval = 3000;
     this.lastPlaneSpawn = Date.now();
 
     // Clear enemy planes
@@ -869,6 +886,13 @@ export class Stage {
       this.scene.remove(plane.airplane.mesh);
     });
     this.enemyPlanes = [];
+
+    // Clear flying frogs
+    this.frogs.forEach(frog => {
+      this.scene.remove(frog.getMesh());
+    });
+    this.frogs = [];
+    this.currentFrog = null;
 
     // Spawn new frog on plane
     this.spawnFrogOnPlane();
