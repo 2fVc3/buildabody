@@ -451,18 +451,27 @@ class EnemyPlane {
     this.speed = 4 + Math.random() * 3;
     this.direction = new Vector3(-1, 0, 0);
     
-    // CRITICAL FIX: Position enemy planes on the EXACT same flight path as player
-    // Player plane is at Y=110, so enemy planes should be at Y=110 too
+    // CRITICAL FIX: Spawn planes at multiple height levels to match player movement range
+    const heightLevels = [
+      50,   // Bottom level (where player can go)
+      80,   // Lower middle
+      110,  // Center level (default player height)
+      140,  // Upper middle  
+      190   // Top level (where player can go)
+    ];
+    
+    const randomHeight = heightLevels[Math.floor(Math.random() * heightLevels.length)];
+    
     this.airplane.mesh.position.set(
       300 + Math.random() * 200,  // Far ahead of player
-      110,                        // EXACT same height as player plane
-      -250                        // EXACT same Z position as player plane
+      randomHeight,               // CRITICAL: Random height from player movement range
+      -250                        // Same Z position as player plane
     );
     
     // Face towards player (opposite direction)
     this.airplane.mesh.rotation.y = Math.PI;
     
-    console.log(`SPAWNED enemy plane at: ${this.airplane.mesh.position.x}, ${this.airplane.mesh.position.y}, ${this.airplane.mesh.position.z}`);
+    console.log(`SPAWNED ${planeType} enemy plane at height: ${randomHeight} (Y: ${this.airplane.mesh.position.y})`);
   }
 
   update(): void {
@@ -724,10 +733,17 @@ export class Stage {
     
     console.log(`SPAWNED ${personality} frog on plane at position: ${this.frogOnPlane.position.x}, ${this.frogOnPlane.position.y}, ${this.frogOnPlane.position.z}`);
     
-    // Update personality display
+    // Update personality display and auto-hide after 3 seconds
     const personalityDisplay = document.getElementById('personality');
     if (personalityDisplay) {
       personalityDisplay.innerHTML = `🐸 ${personality.toUpperCase()} FROG ABOARD`;
+      
+      // CRITICAL FIX: Auto-hide personality text after 3 seconds
+      setTimeout(() => {
+        if (personalityDisplay) {
+          personalityDisplay.style.opacity = '0';
+        }
+      }, 3000);
     }
   }
 
