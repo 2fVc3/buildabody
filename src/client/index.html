@@ -19,6 +19,12 @@
     <div id="container">
       <div id="score">0</div>
       
+      <!-- Game Stats -->
+      <div class="game-stats">
+        <div id="speed-display">Speed: 1.0x</div>
+        <div id="planes-avoided">Avoided: 0</div>
+      </div>
+      
       <!-- Compact Leaderboard -->
       <div id="leaderboard">
         <div class="leaderboard-title">🛩️ Top Pilots</div>
@@ -31,19 +37,6 @@
       <!-- Quote Display -->
       <div id="quote-display">Welcome to Airplane Frog Launch Adventure!</div>
       
-      <!-- Launch Controls -->
-      <div class="launch-controls">
-        <div id="power-container">
-          <div id="power-label">🛩️ AIRPLANE LAUNCH POWER</div>
-          <div id="power-meter-bg">
-            <div id="power-meter"></div>
-          </div>
-        </div>
-        <button id="launch-button" class="btn btn-lg">
-          HOLD TO CHARGE & RELEASE TO LAUNCH FROM AIRPLANE
-        </button>
-      </div>
-      
       <!-- Game Over Screen -->
       <div class="game-over">
         <h2>🎉 AERIAL FROG MISSION COMPLETE! 🎉</h2>
@@ -53,7 +46,7 @@
       <!-- Game Ready Screen -->
       <div class="game-ready">
         <button id="start-button" class="btn btn-primary btn-lg">
-          🛩️ START AIRPLANE FROG ADVENTURE
+          🛩️ START AIRPLANE DODGING ADVENTURE
         </button>
         <div class="menu-buttons">
           <button id="leaderboard-button" class="btn btn-secondary">
@@ -64,10 +57,10 @@
           </button>
         </div>
         <div class="instructions">
-          <p>🛩️ Launch frogs from a beautiful low-poly airplane</p>
-          <p>🌟 Each frog has unique quotes and personalities</p>
-          <p>🏆 Score points based on distance and style</p>
-          <p>🎪 Experience the magic of aerial frog deployment</p>
+          <p>🛩️ Dodge incoming planes to build up speed</p>
+          <p>💥 Crash strategically to launch your frog</p>
+          <p>🌟 Different colored planes have special effects</p>
+          <p>🏆 Score points based on how far your frog flies</p>
         </div>
       </div>
 
@@ -91,66 +84,65 @@
       <!-- Instructions Screen -->
       <div class="instructions-screen screen-overlay">
         <div class="screen-header">
-          <h2>📋 How to Fly & Launch</h2>
+          <h2>📋 How to Play Airplane Dodging</h2>
           <button id="close-instructions" class="btn btn-secondary">
             ✕ Close
           </button>
         </div>
         <div class="screen-content">
           <div class="instruction-section">
-            <h3>🛩️ Airplane Controls</h3>
-            <p>• Move your mouse to control the airplane</p>
-            <p>• The airplane follows your cursor smoothly</p>
-            <p>• Watch the propeller spin as you fly</p>
-            <p>• Enjoy the beautiful low-poly world below</p>
+            <h3>🛩️ Basic Controls</h3>
+            <p>• Move your mouse to control your airplane</p>
+            <p>• Your airplane follows your cursor smoothly</p>
+            <p>• A frog sits on top of your plane, ready to launch</p>
+            <p>• Watch the beautiful low-poly world spin below</p>
           </div>
           
           <div class="instruction-section">
-            <h3>🎯 Frog Launching</h3>
-            <p>• Hold the launch button to charge power</p>
-            <p>• Release to launch your frog from the airplane</p>
-            <p>• Watch them critique your piloting skills</p>
-            <p>• Score points based on distance and style</p>
+            <h3>🎯 Gameplay Objective</h3>
+            <p>• <strong>Dodge incoming planes</strong> to build up speed</p>
+            <p>• Each plane avoided increases your speed multiplier</p>
+            <p>• <strong>Crash strategically</strong> when you want to launch</p>
+            <p>• Higher speed = farther frog launch = more points!</p>
           </div>
           
           <div class="instruction-section">
-            <h3>🐸 Frog Personalities</h3>
-            <p><strong>Dramatic:</strong> Theatrical and over-the-top about flying</p>
-            <p><strong>Zen:</strong> Peaceful but disappointed in your piloting</p>
-            <p><strong>Chaotic:</strong> Unpredictable and wild in the air</p>
-            <p><strong>Sleepy:</strong> Tired and grumpy about the flight</p>
-            <p><strong>Confident:</strong> Arrogant about your flying skills</p>
-            <p><strong>Anxious:</strong> Worried about airplane safety</p>
-            <p><strong>Philosophical:</strong> Questions the meaning of flight</p>
-            <p><strong>Rebellious:</strong> Defies aviation regulations</p>
-          </div>
-          
-          <div class="instruction-section">
-            <h3>🌟 Special Effects</h3>
-            <p><strong>Rainbow:</strong> Color-changing aerial frog</p>
-            <p><strong>Giant:</strong> Supersized flying amphibian</p>
-            <p><strong>Tiny:</strong> Miniature airplane passenger</p>
-            <p><strong>Bouncy:</strong> Extra bounce on landing</p>
-            <p><strong>Glowing:</strong> Illuminated flight path</p>
-            <p><strong>Spinning:</strong> Rotating aerial madness</p>
+            <h3>✈️ Special Plane Types</h3>
+            <p><strong>🔴 Red (Normal):</strong> Standard crash launch</p>
+            <p><strong>🟤 Dark Red (Destroyer):</strong> Destroys frog - no launch!</p>
+            <p><strong>🟡 Gold (Super):</strong> SUPER LAUNCH! 3x power!</p>
+            <p><strong>🔵 Blue (Slow Motion):</strong> Gentle, slow launch</p>
+            <p><strong>🟠 Orange (Bouncy):</strong> Extra bouncy frog</p>
+            <p><strong>🟣 Purple (Tiny):</strong> Miniature frog launch</p>
+            <p><strong>🟢 Green (Giant):</strong> Supersized frog launch</p>
           </div>
           
           <div class="instruction-section">
             <h3>🏆 Scoring System</h3>
             <p>• <strong>Distance:</strong> Base points for flight distance</p>
-            <p>• <strong>Personality Bonus:</strong> Extra style points</p>
-            <p>• <strong>Bounce Bonus:</strong> 10 points per bounce</p>
-            <p>• <strong>Special Effects:</strong> 25 bonus points</p>
-            <p>• <strong>Landing Bonus:</strong> 50 points for smooth landings</p>
+            <p>• <strong>Speed Multiplier:</strong> More avoided planes = higher score</p>
+            <p>• <strong>Special Effects:</strong> Bonus points for special plane crashes</p>
+            <p>• <strong>Personality Bonus:</strong> Each frog has unique traits</p>
           </div>
           
           <div class="instruction-section">
-            <h3>🌍 Beautiful World</h3>
-            <p>• <strong>Rotating Landscape:</strong> Watch the world spin below</p>
-            <p>• <strong>Floating Clouds:</strong> Dodge the white puffy obstacles</p>
-            <p>• <strong>Lush Forest:</strong> Trees and flowers everywhere</p>
-            <p>• <strong>Golden Sun:</strong> Illuminates your flight path</p>
-            <p>• <strong>Mouse Control:</strong> Smooth airplane movement</p>
+            <h3>🎮 Strategy Tips</h3>
+            <p>• <strong>Build Speed:</strong> Avoid as many planes as possible first</p>
+            <p>• <strong>Choose Your Crash:</strong> Look for gold planes for super launches</p>
+            <p>• <strong>Avoid Destroyers:</strong> Dark red planes will ruin your run</p>
+            <p>• <strong>Risk vs Reward:</strong> Higher speed means harder dodging</p>
+          </div>
+          
+          <div class="instruction-section">
+            <h3>🐸 Frog Personalities</h3>
+            <p><strong>Dramatic:</strong> Theatrical comments about your flying</p>
+            <p><strong>Zen:</strong> Peaceful but disappointed in your piloting</p>
+            <p><strong>Chaotic:</strong> Unpredictable and wild reactions</p>
+            <p><strong>Sleepy:</strong> Tired and grumpy about the flight</p>
+            <p><strong>Confident:</strong> Arrogant about your flying skills</p>
+            <p><strong>Anxious:</strong> Worried about airplane safety</p>
+            <p><strong>Philosophical:</strong> Questions the meaning of flight</p>
+            <p><strong>Rebellious:</strong> Defies aviation regulations</p>
           </div>
         </div>
       </div>

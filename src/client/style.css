@@ -83,13 +83,45 @@ body {
   z-index: 100;
 }
 
-.aiming #score,
-.flying #score {
+.playing #score,
+.crashed #score {
   transform: translateY(0);
 }
 
 .ended #score {
   transform: translateY(var(--space-4)) scale(1.2);
+}
+
+/* Game Stats Display */
+.game-stats {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: 100;
+}
+
+.playing .game-stats,
+.crashed .game-stats {
+  opacity: 1;
+}
+
+#speed-display,
+#planes-avoided {
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2) var(--space-4);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px var(--shadow-lg);
+  text-align: center;
+  min-width: 120px;
 }
 
 /* Personality Display - High contrast */
@@ -111,7 +143,7 @@ body {
   z-index: 100;
 }
 
-.aiming #personality {
+.playing #personality {
   opacity: 1;
 }
 
@@ -262,71 +294,6 @@ body {
   margin: var(--space-2) 0;
   font-size: 1rem;
   line-height: 1.5;
-}
-
-/* Launch Controls */
-.launch-controls {
-  position: absolute;
-  bottom: var(--space-8);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-6);
-  opacity: 0;
-  transition: opacity 0.5s ease;
-  z-index: 200;
-}
-
-.aiming .launch-controls {
-  opacity: 1;
-}
-
-#power-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-  background: var(--surface);
-  border: 2px solid var(--primary);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6);
-  box-shadow: 0 4px 12px var(--shadow-lg);
-}
-
-#power-label {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-#power-meter-bg {
-  width: 300px;
-  height: 12px;
-  background: var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-#power-meter {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #ef4444, #f59e0b, #10b981);
-  transition: width 0.1s ease;
-  border-radius: var(--radius);
-}
-
-#launch-button {
-  background: var(--surface);
-  color: var(--primary);
-  font-weight: 700;
-  border: 2px solid var(--primary);
-}
-
-#launch-button:hover {
-  background: var(--primary);
-  color: var(--text-light);
 }
 
 /* Game Over */
@@ -573,8 +540,16 @@ body {
     align-items: center;
   }
   
-  #power-meter-bg {
-    width: 250px;
+  .game-stats {
+    top: var(--space-2);
+    right: var(--space-2);
+  }
+  
+  #speed-display,
+  #planes-avoided {
+    font-size: 0.875rem;
+    padding: var(--space-1) var(--space-3);
+    min-width: 100px;
   }
   
   .screen-header {

@@ -10,40 +10,26 @@ import type { PostConfig, FrogPersonality, FrogEffect } from '../shared/types/po
 import { User } from '../shared/types/user';
 import { InitMessage } from '../shared/types/message';
 
-type GameState = 'loading' | 'ready' | 'aiming' | 'flying' | 'ended';
+type GameState = 'loading' | 'ready' | 'playing' | 'crashed' | 'ended';
 
 const FROG_PERSONALITIES: FrogPersonality[] = [
   'dramatic', 'zen', 'chaotic', 'sleepy', 'confident', 'anxious', 'philosophical', 'rebellious'
-];
-
-const SILLY_ACHIEVEMENTS = [
-  "🏆 First Flight Survivor! (The frog is mildly impressed)",
-  "🎪 Bounce Master Extraordinaire! (Still thinks you're incompetent)",
-  "🌟 Frog Whisperer Certified! (They're just being polite)",
-  "🎭 Drama Queen of the Pond! (The frog demands better)",
-  "🧘 Zen Master Amphibian! (Achieved despite your chaos)",
-  "🤪 Chaos Theory Proven! (Thanks to your terrible aim)",
-  "💤 Sleepy Launch Champion! (Woke up just to criticize you)",
-  "💪 Confidence Incarnate! (No thanks to your launching)",
-  "😰 Anxiety Overcomer! (Survived your incompetence)",
-  "🤔 Philosophical Frog Sage! (Questions your life choices)",
-  "😤 Rebellious Leap Legend! (Defied your expectations)"
 ];
 
 export class Game {
   private devvit!: Devvit;
   private mainContainer!: HTMLElement;
   private scoreContainer!: HTMLElement;
-  private powerMeter!: HTMLElement;
+  private speedDisplay!: HTMLElement;
+  private planesAvoidedDisplay!: HTMLElement;
   private personalityDisplay!: HTMLElement;
   private quoteDisplay!: HTMLElement;
   private leaderboardList!: HTMLElement;
   private fullLeaderboardList!: HTMLElement;
   private gameOverText!: HTMLElement;
-  private launchButton!: HTMLElement;
+  private startButton!: HTMLElement;
   private leaderboardButton!: HTMLElement;
   private instructionsButton!: HTMLElement;
-  private startButton!: HTMLElement;
   private leaderboardScreen!: HTMLElement;
   private instructionsScreen!: HTMLElement;
   private closeLeaderboard!: HTMLElement;
@@ -52,13 +38,8 @@ export class Game {
 
   private state: GameState = 'loading';
   private stage!: Stage;
-  private currentFrog!: Frog;
   private totalScore: number = 0;
-  private launchCount: number = 0;
-  private power: number = 0;
-  private angle: number = 0;
-  private powerIncreasing: boolean = true;
-  private isCharging: boolean = false;
+  private finalDistance: number = 0;
 
   private stats!: Stats;
   private config!: PostConfig;
@@ -104,16 +85,16 @@ export class Game {
 
     this.mainContainer = document.getElementById('container') as HTMLElement;
     this.scoreContainer = document.getElementById('score') as HTMLElement;
-    this.powerMeter = document.getElementById('power-meter') as HTMLElement;
+    this.speedDisplay = document.getElementById('speed-display') as HTMLElement;
+    this.planesAvoidedDisplay = document.getElementById('planes-avoided') as HTMLElement;
     this.personalityDisplay = document.getElementById('personality') as HTMLElement;
     this.quoteDisplay = document.getElementById('quote-display') as HTMLElement;
     this.leaderboardList = document.getElementById('leaderboard-list') as HTMLElement;
     this.fullLeaderboardList = document.getElementById('full-leaderboard-list') as HTMLElement;
     this.gameOverText = document.getElementById('game-over-text') as HTMLElement;
-    this.launchButton = document.getElementById('launch-button') as HTMLElement;
+    this.startButton = document.getElementById('start-button') as HTMLElement;
     this.leaderboardButton = document.getElementById('leaderboard-button') as HTMLElement;
     this.instructionsButton = document.getElementById('instructions-button') as HTMLElement;
-    this.startButton = document.getElementById('start-button') as HTMLElement;
     this.leaderboardScreen = document.querySelector('.leaderboard-screen') as HTMLElement;
     this.instructionsScreen = document.querySelector('.instructions-screen') as HTMLElement;
     this.closeLeaderboard = document.getElementById('close-leaderboard') as HTMLElement;
@@ -143,9 +124,30 @@ export class Game {
   }
 
   private setupEventListeners(): void {
+    // Listen for game events
+    window.addEventListener('planeAvoided', (event: any) => {
+      this.showQuote(event.detail.message);
+      this.updateGameStats(event.detail.planesAvoided, event.detail.speed);
+    });
+
+    window.addEventListener('planeCrash', (event: any) => {
+      this.showQuote(event.detail.message);
+      this.updateState('crashed');
+    });
+
+    window.addEventListener('frogDestroyed', (event: any) => {
+      this.showQuote(event.detail.message);
+      this.handleGameOver(0); // No score for destroyed frog
+    });
+
+    window.addEventListener('gameReset', (event: any) => {
+      this.showQuote(event.detail.message);
+      this.updateState('playing');
+      this.updateGameStats(0, '1.0');
+    });
+
     // Listen for frog quotes
     window.addEventListener('frogQuote', (event: any) => {
-      console.log('Received frog quote event:', event.detail);
       this.showQuote(event.detail.quote);
     });
 
@@ -153,21 +155,18 @@ export class Game {
     this.leaderboardButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      console.log('Leaderboard button clicked');
       this.showLeaderboardScreen();
     });
 
     this.instructionsButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      console.log('Instructions button clicked');
       this.showInstructionsScreen();
     });
 
     this.startButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      console.log('Start button clicked');
       this.action();
     });
 
@@ -182,54 +181,9 @@ export class Game {
       e.stopPropagation();
       this.hideInstructionsScreen();
     });
-
-    // Power meter control - Mouse events
-    this.launchButton.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      this.startPowerMeter();
-    });
-    
-    this.launchButton.addEventListener('mouseup', (e) => {
-      e.preventDefault();
-      this.launch();
-    });
-
-    // Power meter control - Touch events
-    this.launchButton.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      this.startPowerMeter();
-    });
-    
-    this.launchButton.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      this.launch();
-    });
-
-    // Also handle mouse leave in case user drags off button
-    this.launchButton.addEventListener('mouseleave', (e) => {
-      if (this.isCharging) {
-        this.launch();
-      }
-    });
-
-    // Keyboard support
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && this.state === 'aiming' && !this.isCharging) {
-        e.preventDefault();
-        this.startPowerMeter();
-      }
-    });
-
-    document.addEventListener('keyup', (e) => {
-      if (e.code === 'Space' && this.isCharging) {
-        e.preventDefault();
-        this.launch();
-      }
-    });
   }
 
   private showLeaderboardScreen(): void {
-    console.log('Showing leaderboard screen');
     this.leaderboardScreen.classList.add('show');
     this.updateFullLeaderboard();
   }
@@ -239,7 +193,6 @@ export class Game {
   }
 
   private showInstructionsScreen(): void {
-    console.log('Showing instructions screen');
     this.instructionsScreen.classList.add('show');
   }
 
@@ -260,27 +213,7 @@ export class Game {
   }
 
   private update(deltaTime: number): void {
-    if (this.state === 'aiming' && this.isCharging) {
-      this.updatePowerMeter();
-    }
-  }
-
-  private updatePowerMeter(): void {
-    if (this.powerIncreasing) {
-      this.power += 3;
-      if (this.power >= 100) {
-        this.power = 100;
-        this.powerIncreasing = false;
-      }
-    } else {
-      this.power -= 3;
-      if (this.power <= 0) {
-        this.power = 0;
-        this.powerIncreasing = true;
-      }
-    }
-
-    this.powerMeter.style.width = `${this.power}%`;
+    // Game updates are handled in the stage
   }
 
   private render(): void {
@@ -306,183 +239,47 @@ export class Game {
 
   private async startGame(): Promise<void> {
     this.totalScore = 0;
-    this.launchCount = 0;
+    this.finalDistance = 0;
     this.updateScore();
-    this.updateState('aiming');
-    this.spawnNewFrog();
+    this.updateState('playing');
+    this.showQuote('🛩️ Dodge the incoming planes to build up speed! Crash strategically to launch your frog!');
   }
 
-  private spawnNewFrog(): void {
-    // Create new frog with random personality
-    const personality = FROG_PERSONALITIES[Math.floor(Math.random() * FROG_PERSONALITIES.length)]!;
-    this.currentFrog = new Frog(personality);
-    
-    // Apply random effect
-    const effect = this.getRandomEffect();
-    if (effect.type !== 'none') {
-      this.currentFrog.applyEffect(effect);
+  private updateGameStats(planesAvoided: number, speed: string): void {
+    if (this.speedDisplay) {
+      this.speedDisplay.innerHTML = `Speed: ${speed}x`;
     }
-
-    this.updatePersonalityDisplay();
-    
-    // Show spawn quote with personality-specific insults
-    const spawnQuotes = {
-      dramatic: "🎭 A DRAMATIC frog appears on the airplane! Prepare for theatrical criticism!",
-      zen: "🧘 A ZEN frog boards the plane... already disappointed in your piloting...",
-      chaotic: "🤪 A CHAOTIC frog jumps aboard! Ready for maximum mayhem!",
-      sleepy: "😴 A SLEEPY frog climbs in... *yawn* this better be good...",
-      confident: "💪 A CONFIDENT frog takes position! Knows you'll mess this up!",
-      anxious: "😰 An ANXIOUS frog nervously enters! Already worried about your flying!",
-      philosophical: "🤔 A PHILOSOPHICAL frog contemplates... questioning your existence...",
-      rebellious: "😤 A REBELLIOUS frog boards defiantly! Won't follow your flight plan!"
-    };
-    
-    this.showQuote(spawnQuotes[personality]);
+    if (this.planesAvoidedDisplay) {
+      this.planesAvoidedDisplay.innerHTML = `Avoided: ${planesAvoided}`;
+    }
   }
 
-  private updatePersonalityDisplay(): void {
-    const personality = this.currentFrog.personality;
-    const emojis = {
-      dramatic: '🎭',
-      zen: '🧘',
-      chaotic: '🤪',
-      sleepy: '😴',
-      confident: '💪',
-      anxious: '😰',
-      philosophical: '🤔',
-      rebellious: '😤'
-    };
-    
-    this.personalityDisplay.innerHTML = `${emojis[personality]} ${personality.toUpperCase()} FROG ABOARD`;
-  }
-
-  private startPowerMeter(): void {
-    if (this.state !== 'aiming' || this.isCharging) return;
-    
-    this.isCharging = true;
-    this.power = 0;
-    this.powerIncreasing = true;
-    
-    console.log('Started charging power meter for airplane launch');
-  }
-
-  private launch(): void {
-    if (this.state !== 'aiming' || !this.isCharging) return;
-
-    this.isCharging = false;
-    
-    // Use current power level
-    const launchPower = Math.max(10, this.power); // Minimum 10% power
-    this.angle = (Math.random() - 0.5) * Math.PI * 0.3; // Random angle
-    
-    console.log(`🛩️ Launching frog from airplane with power: ${launchPower}%`);
-    
-    // Launch the frog from the airplane!
-    this.stage.launchFrogFromPlane(this.currentFrog, launchPower, this.angle);
-    this.launchCount++;
-    
-    this.updateState('flying');
-    
-    // Reset power meter
-    this.power = 0;
-    this.powerMeter.style.width = '0%';
-
-    // Wait for frog to land, then continue
-    setTimeout(() => {
-      this.handleFrogLanding();
-    }, 5000); // Simulate flight time
-  }
-
-  private handleFrogLanding(): void {
-    const frogScore = this.currentFrog.getScore();
-    this.totalScore += frogScore;
+  private async handleGameOver(score: number): Promise<void> {
+    this.totalScore = score;
     this.updateScore();
-    
-    // Show score with airplane-themed comment
-    const scoreComments = [
-      `🛩️ Aerial delivery complete! +${frogScore} points! (The pilot is unimpressed)`,
-      `✈️ Frog deployed successfully! +${frogScore}! (Could've been smoother, says the frog)`,
-      `🎯 Air drop successful! +${frogScore} points! (The frog thinks you got lucky)`,
-      `🚁 Mission accomplished! ${frogScore} points earned! (Frog: "I did all the flying")`
-    ];
-    
-    const comment = scoreComments[Math.floor(Math.random() * scoreComments.length)]!;
-    this.showQuote(comment);
-    
-    // Show achievement for special scores
-    if (frogScore > 200) {
-      setTimeout(() => {
-        this.showAchievement();
-      }, 2000);
-    }
-
-    setTimeout(() => {
-      if (this.launchCount >= 5) {
-        this.endGame();
-      } else {
-        this.updateState('aiming');
-        this.spawnNewFrog();
-      }
-    }, 3000);
-  }
-
-  private showAchievement(): void {
-    const achievement = SILLY_ACHIEVEMENTS[Math.floor(Math.random() * SILLY_ACHIEVEMENTS.length)]!;
-    this.showQuote(achievement);
-  }
-
-  private async endGame(): Promise<void> {
     this.updateState('ended');
     
-    const data = await this.devvit.gameOver(this.totalScore);
-    
-    if (this.userAllTimeStats && this.totalScore > this.userAllTimeStats.score) {
-      this.gameOverText.innerHTML = `🏆 NEW FLIGHT RECORD! 🏆<br/>You launched ${this.launchCount} frogs from the airplane for ${this.totalScore} points!<br/>🛩️ The frogs are... slightly less disappointed in your piloting! 🐸`;
+    if (score > 0) {
+      const data = await this.devvit.gameOver(this.totalScore);
+      
+      if (this.userAllTimeStats && this.totalScore > this.userAllTimeStats.score) {
+        this.gameOverText.innerHTML = `🏆 NEW FLIGHT RECORD! 🏆<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog is... slightly less disappointed in your piloting! 🐸`;
+      } else {
+        this.gameOverText.innerHTML = `🎪 AERIAL FROG MISSION COMPLETE! 🎪<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog has filed their flight complaints! 🐸`;
+      }
+      
+      this.userAllTimeStats = data.userAllTimeStats;
+      this.leaderboardData = data.leaderboard;
+      this.updateLeaderboard(data.leaderboard);
     } else {
-      this.gameOverText.innerHTML = `🎪 AERIAL FROG MISSION COMPLETE! 🎪<br/>You launched ${this.launchCount} frogs from the airplane for ${this.totalScore} points!<br/>🛩️ The frogs have filed their flight complaints! 🐸`;
+      this.gameOverText.innerHTML = `💥 FROG DESTROYED! 💥<br/>Your frog was obliterated by a destroyer plane!<br/>🛩️ No points awarded for frog destruction! 🐸`;
     }
-    
-    this.userAllTimeStats = data.userAllTimeStats;
-    this.leaderboardData = data.leaderboard;
-    this.updateLeaderboard(data.leaderboard);
   }
 
   private async restartGame(): Promise<void> {
-    // Epic frog farewell animation
-    if (this.currentFrog) {
-      // Final sarcastic goodbye
-      this.showQuote("🐸 Finally! I'm parachuting away from this amateur pilot!");
-      
-      new Tween(this.currentFrog.position)
-        .to({ y: 20 }, 1000)
-        .easing(Easing.Back.Out)
-        .onComplete(() => {
-          this.stage.remove(this.currentFrog.getMesh());
-        })
-        .start();
-    }
-
     setTimeout(async () => {
       await this.startGame();
     }, 1000);
-  }
-
-  private getRandomEffect(): FrogEffect {
-    const effects: FrogEffect[] = [
-      { type: 'rainbow', duration: 3000, magnitude: 1 },
-      { type: 'giant', duration: 5000, magnitude: 0.5 },
-      { type: 'tiny', duration: 5000, magnitude: 0.3 },
-      { type: 'bouncy', duration: 4000, magnitude: 1.5 },
-      { type: 'glowing', duration: 4000, magnitude: 1 },
-      { type: 'spinning', duration: 3000, magnitude: 2 },
-      { type: 'none', duration: 0, magnitude: 0 }
-    ];
-    
-    if (Math.random() > 0.3) {
-      return effects[effects.length - 1]!; // No effect
-    }
-    
-    return effects[Math.floor(Math.random() * (effects.length - 1))]!;
   }
 
   private updateScore(): void {
@@ -490,8 +287,6 @@ export class Game {
   }
 
   private showQuote(quote: string): void {
-    console.log('Showing quote:', quote);
-    
     this.quoteDisplay.innerHTML = quote;
     this.quoteDisplay.classList.add('show');
     
@@ -506,8 +301,6 @@ export class Game {
       score: number;
     }[]
   ) {
-    console.log('Updating leaderboard with data:', leaderboard);
-    
     // Update compact leaderboard
     this.leaderboardList.innerHTML = '';
     leaderboard.slice(0, 4).forEach((leaderboardItem, index) => {
@@ -532,8 +325,6 @@ export class Game {
   }
 
   private updateFullLeaderboard(): void {
-    console.log('Updating full leaderboard with data:', this.leaderboardData);
-    
     this.fullLeaderboardList.innerHTML = '';
     
     if (this.leaderboardData.length === 0) {

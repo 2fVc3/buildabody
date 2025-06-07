@@ -15,7 +15,9 @@ import {
   BoxGeometry,
   MeshBasicMaterial,
   Vector3,
-  Clock
+  Clock,
+  ConeGeometry,
+  Group
 } from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
 import { Frog } from './frog';
@@ -32,6 +34,10 @@ const Colors = {
   green: 0x458248,
   purple: 0x551A8B,
   lightgreen: 0x629265,
+  orange: 0xFF4500,
+  darkred: 0x8B0000,
+  gold: 0xFFD700,
+  silver: 0xC0C0C0,
 };
 
 class Land {
@@ -189,9 +195,6 @@ class Flower {
     const geomPetal = new BoxGeometry(15, 20, 5, 1, 1, 1);
     const matPetal = new MeshBasicMaterial({ color: petalColor });
 
-    // Modify vertices for petal shape
-    const vertices = geomPetal.attributes.position.array;
-    // Note: In newer Three.js, vertex manipulation is different
     geomPetal.translate(12.5, 0, 3);
 
     const petals = [];
@@ -252,17 +255,40 @@ class Forest {
   }
 }
 
+type PlaneType = 'normal' | 'destroyer' | 'super' | 'slowmo' | 'bouncy' | 'tiny' | 'giant';
+
+interface PlaneEffect {
+  type: PlaneType;
+  color: number;
+  effect: string;
+  description: string;
+}
+
+const PLANE_EFFECTS: PlaneEffect[] = [
+  { type: 'normal', color: Colors.red, effect: 'normal', description: 'Normal crash launch' },
+  { type: 'destroyer', color: Colors.darkred, effect: 'destroy', description: 'Destroys frog - no launch!' },
+  { type: 'super', color: Colors.gold, effect: 'super', description: 'SUPER LAUNCH! 3x power!' },
+  { type: 'slowmo', color: Colors.blue, effect: 'slowmo', description: 'Slow motion launch' },
+  { type: 'bouncy', color: Colors.orange, effect: 'bouncy', description: 'Extra bouncy frog' },
+  { type: 'tiny', color: Colors.purple, effect: 'tiny', description: 'Tiny frog launch' },
+  { type: 'giant', color: Colors.green, effect: 'giant', description: 'Giant frog launch' }
+];
+
 class AirPlane {
   mesh: Object3D;
   propeller: Mesh;
+  planeType: PlaneType;
+  effect: PlaneEffect;
 
-  constructor() {
+  constructor(planeType: PlaneType = 'normal') {
+    this.planeType = planeType;
+    this.effect = PLANE_EFFECTS.find(e => e.type === planeType) || PLANE_EFFECTS[0];
     this.mesh = new Object3D();
 
-    // Create the cabin
+    // Create the cabin with effect color
     const geomCockpit = new BoxGeometry(80, 50, 50, 1, 1, 1);
     const matCockpit = new MeshPhongMaterial({
-      color: Colors.red,
+      color: this.effect.color,
       flatShading: true,
     });
 
@@ -286,7 +312,7 @@ class AirPlane {
     // Create the tail
     const geomTailPlane = new BoxGeometry(15, 20, 5, 1, 1, 1);
     const matTailPlane = new MeshPhongMaterial({
-      color: Colors.red,
+      color: this.effect.color,
       flatShading: true,
     });
     const tailPlane = new Mesh(geomTailPlane, matTailPlane);
@@ -298,7 +324,7 @@ class AirPlane {
     // Create the wings
     const geomSideWing = new BoxGeometry(40, 4, 150, 1, 1, 1);
     const matSideWing = new MeshPhongMaterial({
-      color: Colors.red,
+      color: this.effect.color,
       flatShading: true,
     });
 
@@ -404,13 +430,58 @@ class AirPlane {
     const suspensionGeom = new BoxGeometry(4, 20, 4);
     suspensionGeom.translate(0, 10, 0);
     const suspensionMat = new MeshPhongMaterial({
-      color: Colors.red,
+      color: this.effect.color,
       flatShading: true,
     });
     const suspension = new Mesh(suspensionGeom, suspensionMat);
     suspension.position.set(-35, -5, 0);
     suspension.rotation.z = -0.3;
     this.mesh.add(suspension);
+  }
+}
+
+class EnemyPlane {
+  airplane: AirPlane;
+  speed: number;
+  direction: Vector3;
+  active: boolean = true;
+
+  constructor(planeType: PlaneType = 'normal') {
+    this.airplane = new AirPlane(planeType);
+    this.speed = 2 + Math.random() * 3;
+    this.direction = new Vector3(-1, 0, 0); // Flying towards player
+    
+    // Position randomly in front of player
+    this.airplane.mesh.position.set(
+      200 + Math.random() * 300,
+      50 + Math.random() * 100,
+      (Math.random() - 0.5) * 400
+    );
+    
+    // Face towards player
+    this.airplane.mesh.rotation.y = Math.PI;
+  }
+
+  update(): void {
+    if (!this.active) return;
+    
+    // Move towards player
+    this.airplane.mesh.position.add(this.direction.clone().multiplyScalar(this.speed));
+    
+    // Spin propeller
+    this.airplane.propeller.rotation.x += 0.3;
+    
+    // Remove if too far behind player
+    if (this.airplane.mesh.position.x < -300) {
+      this.active = false;
+    }
+  }
+
+  checkCollision(playerPosition: Vector3): boolean {
+    if (!this.active) return false;
+    
+    const distance = this.airplane.mesh.position.distanceTo(playerPosition);
+    return distance < 80; // Collision threshold
   }
 }
 
@@ -428,6 +499,15 @@ export class Stage {
   private orbit: Object3D;
   private airplane: AirPlane;
   private sun: Sun;
+
+  // Game elements
+  private frogOnPlane: Frog | null = null;
+  private enemyPlanes: EnemyPlane[] = [];
+  private gameSpeed: number = 1;
+  private planesAvoided: number = 0;
+  private gameActive: boolean = true;
+  private lastPlaneSpawn: number = 0;
+  private spawnInterval: number = 2000; // Start with 2 seconds between planes
 
   // Mouse tracking
   private mousePos = { x: 0, y: 0 };
@@ -450,6 +530,7 @@ export class Stage {
     this.setupWorld();
     this.setupEventListeners();
     this.startRenderLoop();
+    this.spawnFrogOnPlane();
   }
 
   private setupRenderer(devicePixelRatio: number): void {
@@ -531,8 +612,8 @@ export class Stage {
     this.sun.mesh.position.set(0, -30, -850);
     this.scene.add(this.sun.mesh);
 
-    // Create airplane
-    this.airplane = new AirPlane();
+    // Create player airplane
+    this.airplane = new AirPlane('normal');
     this.airplane.mesh.scale.set(0.35, 0.35, 0.35);
     this.airplane.mesh.position.set(-40, 110, -250);
     this.scene.add(this.airplane.mesh);
@@ -568,32 +649,253 @@ export class Stage {
   }
 
   private updatePlane(): void {
+    if (!this.gameActive) return;
+
     const targetY = this.normalize(this.mousePos.y, -0.75, 0.75, 50, 190);
     const targetX = this.normalize(this.mousePos.x, -0.75, 0.75, -100, -20);
 
-    // Move the plane smoothly
-    this.airplane.mesh.position.y += (targetY - this.airplane.mesh.position.y) * 0.1;
-    this.airplane.mesh.position.x += (targetX - this.airplane.mesh.position.x) * 0.1;
+    // Move the plane smoothly (faster with game speed)
+    const moveSpeed = 0.1 * this.gameSpeed;
+    this.airplane.mesh.position.y += (targetY - this.airplane.mesh.position.y) * moveSpeed;
+    this.airplane.mesh.position.x += (targetX - this.airplane.mesh.position.x) * moveSpeed;
 
     // Rotate the plane based on movement
     this.airplane.mesh.rotation.z = (targetY - this.airplane.mesh.position.y) * 0.0128;
     this.airplane.mesh.rotation.x = (this.airplane.mesh.position.y - targetY) * 0.0064;
     this.airplane.mesh.rotation.y = (this.airplane.mesh.position.x - targetX) * 0.0064;
 
-    // Spin the propeller
-    this.airplane.propeller.rotation.x += 0.3;
+    // Spin the propeller faster with game speed
+    this.airplane.propeller.rotation.x += 0.3 * this.gameSpeed;
+
+    // Update frog position to match plane
+    if (this.frogOnPlane) {
+      this.frogOnPlane.position.copy(this.airplane.mesh.position);
+      this.frogOnPlane.position.y += 30; // On top of plane
+      this.frogOnPlane.position.x -= 10; // Slightly back from cockpit
+    }
+  }
+
+  private spawnFrogOnPlane(): void {
+    if (this.frogOnPlane) {
+      this.scene.remove(this.frogOnPlane.getMesh());
+    }
+
+    // Create new frog with random personality
+    const personalities = ['dramatic', 'zen', 'chaotic', 'sleepy', 'confident', 'anxious', 'philosophical', 'rebellious'];
+    const personality = personalities[Math.floor(Math.random() * personalities.length)] as any;
+    
+    this.frogOnPlane = new Frog(personality);
+    this.frogOnPlane.getMesh().scale.set(0.3, 0.3, 0.3); // Smaller on plane
+    
+    // Position on top of plane
+    this.frogOnPlane.position.copy(this.airplane.mesh.position);
+    this.frogOnPlane.position.y += 30;
+    this.frogOnPlane.position.x -= 10;
+    
+    this.scene.add(this.frogOnPlane.getMesh());
+  }
+
+  private spawnEnemyPlane(): void {
+    // Random plane type with weighted probabilities
+    const rand = Math.random();
+    let planeType: PlaneType;
+    
+    if (rand < 0.4) planeType = 'normal';
+    else if (rand < 0.55) planeType = 'destroyer';
+    else if (rand < 0.65) planeType = 'super';
+    else if (rand < 0.75) planeType = 'slowmo';
+    else if (rand < 0.85) planeType = 'bouncy';
+    else if (rand < 0.95) planeType = 'tiny';
+    else planeType = 'giant';
+
+    const enemyPlane = new EnemyPlane(planeType);
+    enemyPlane.airplane.mesh.scale.set(0.35, 0.35, 0.35);
+    enemyPlane.speed *= this.gameSpeed; // Faster with game speed
+    
+    this.enemyPlanes.push(enemyPlane);
+    this.scene.add(enemyPlane.airplane.mesh);
+  }
+
+  private updateEnemyPlanes(): void {
+    const currentTime = Date.now();
+    
+    // Spawn new planes
+    if (currentTime - this.lastPlaneSpawn > this.spawnInterval && this.gameActive) {
+      this.spawnEnemyPlane();
+      this.lastPlaneSpawn = currentTime;
+      
+      // Increase difficulty over time
+      this.spawnInterval = Math.max(500, this.spawnInterval - 50);
+    }
+
+    // Update existing planes
+    for (let i = this.enemyPlanes.length - 1; i >= 0; i--) {
+      const enemyPlane = this.enemyPlanes[i];
+      enemyPlane.update();
+
+      // Check collision with player
+      if (enemyPlane.checkCollision(this.airplane.mesh.position)) {
+        this.handleCollision(enemyPlane);
+        return;
+      }
+
+      // Remove inactive planes
+      if (!enemyPlane.active) {
+        this.scene.remove(enemyPlane.airplane.mesh);
+        this.enemyPlanes.splice(i, 1);
+        
+        // Plane avoided - increase speed!
+        this.planesAvoided++;
+        this.gameSpeed += 0.1;
+        
+        // Dispatch event for UI update
+        window.dispatchEvent(new CustomEvent('planeAvoided', { 
+          detail: { 
+            planesAvoided: this.planesAvoided, 
+            speed: this.gameSpeed.toFixed(1),
+            message: `🛩️ Plane avoided! Speed: ${this.gameSpeed.toFixed(1)}x | Avoided: ${this.planesAvoided}`
+          } 
+        }));
+      }
+    }
+  }
+
+  private handleCollision(enemyPlane: EnemyPlane): void {
+    this.gameActive = false;
+    
+    // Remove enemy plane
+    this.scene.remove(enemyPlane.airplane.mesh);
+    const index = this.enemyPlanes.indexOf(enemyPlane);
+    if (index > -1) {
+      this.enemyPlanes.splice(index, 1);
+    }
+
+    // Handle different plane effects
+    const effect = enemyPlane.airplane.effect;
+    let launchPower = this.gameSpeed * 20; // Base power from speed
+    
+    switch (effect.type) {
+      case 'destroyer':
+        // Frog destroyed - no launch
+        window.dispatchEvent(new CustomEvent('frogDestroyed', { 
+          detail: { 
+            message: '💥 DESTROYER PLANE! Your frog was obliterated! No launch!',
+            planesAvoided: this.planesAvoided,
+            speed: this.gameSpeed.toFixed(1)
+          } 
+        }));
+        this.resetGame();
+        return;
+        
+      case 'super':
+        launchPower *= 3;
+        break;
+        
+      case 'slowmo':
+        launchPower *= 0.5;
+        break;
+        
+      case 'bouncy':
+        // Will affect frog bounce in frog class
+        break;
+        
+      case 'tiny':
+        launchPower *= 0.7;
+        break;
+        
+      case 'giant':
+        launchPower *= 1.5;
+        break;
+    }
+
+    // Launch the frog!
+    this.launchFrogFromCrash(launchPower, effect);
+  }
+
+  private launchFrogFromCrash(power: number, effect: PlaneEffect): void {
+    if (!this.frogOnPlane) return;
+
+    // Remove frog from plane and make it full size
+    this.frogOnPlane.getMesh().scale.set(1, 1, 1);
+    
+    // Apply special effects
+    if (effect.type === 'bouncy') {
+      this.frogOnPlane.applyEffect({ type: 'bouncy', duration: 10000, magnitude: 2 });
+    } else if (effect.type === 'tiny') {
+      this.frogOnPlane.applyEffect({ type: 'tiny', duration: 8000, magnitude: 0.5 });
+    } else if (effect.type === 'giant') {
+      this.frogOnPlane.applyEffect({ type: 'giant', duration: 8000, magnitude: 1 });
+    } else if (effect.type === 'slowmo') {
+      this.frogOnPlane.applyEffect({ type: 'glowing', duration: 6000, magnitude: 1 });
+    } else if (effect.type === 'super') {
+      this.frogOnPlane.applyEffect({ type: 'rainbow', duration: 5000, magnitude: 1 });
+    }
+
+    // Launch with calculated power
+    const angle = (Math.random() - 0.5) * Math.PI * 0.3;
+    this.frogOnPlane.launch(power, angle);
+    
+    this.currentFrog = this.frogOnPlane;
+    this.frogs.push(this.frogOnPlane);
+    this.frogOnPlane = null;
+
+    // Show crash message
+    window.dispatchEvent(new CustomEvent('planeCrash', { 
+      detail: { 
+        message: `💥 ${effect.description.toUpperCase()}! Speed: ${this.gameSpeed.toFixed(1)}x | Avoided: ${this.planesAvoided}`,
+        effect: effect.type,
+        power: power.toFixed(1),
+        planesAvoided: this.planesAvoided,
+        speed: this.gameSpeed.toFixed(1)
+      } 
+    }));
+
+    // Wait for frog to land, then reset
+    setTimeout(() => {
+      this.resetGame();
+    }, 8000);
+  }
+
+  private resetGame(): void {
+    // Reset game state
+    this.gameActive = true;
+    this.gameSpeed = 1;
+    this.planesAvoided = 0;
+    this.spawnInterval = 2000;
+    this.lastPlaneSpawn = Date.now();
+
+    // Clear enemy planes
+    this.enemyPlanes.forEach(plane => {
+      this.scene.remove(plane.airplane.mesh);
+    });
+    this.enemyPlanes = [];
+
+    // Spawn new frog on plane
+    this.spawnFrogOnPlane();
+
+    // Reset camera
+    this.camera.position.set(0, 150, 100);
+    this.camera.lookAt(0, 0, 0);
+
+    window.dispatchEvent(new CustomEvent('gameReset', { 
+      detail: { message: '🛩️ New frog ready for takeoff! Avoid the incoming planes!' } 
+    }));
   }
 
   private startRenderLoop(): void {
     const animate = () => {
-      // Rotate world elements
-      this.land.mesh.rotation.z += 0.005;
-      this.orbit.rotation.z += 0.001;
-      this.sky.mesh.rotation.z += 0.003;
-      this.forest.mesh.rotation.z += 0.005;
+      // Rotate world elements (slower when game is faster for better visibility)
+      const worldSpeed = Math.max(0.3, 1 / this.gameSpeed);
+      this.land.mesh.rotation.z += 0.005 * worldSpeed;
+      this.orbit.rotation.z += 0.001 * worldSpeed;
+      this.sky.mesh.rotation.z += 0.003 * worldSpeed;
+      this.forest.mesh.rotation.z += 0.005 * worldSpeed;
 
       // Update airplane
       this.updatePlane();
+
+      // Update enemy planes
+      this.updateEnemyPlanes();
 
       // Update frogs
       this.updateFrogs();
@@ -606,7 +908,7 @@ export class Stage {
   }
 
   private updateFrogs(): void {
-    const deltaTime = this.clock.getDelta() * 1000; // Convert to milliseconds
+    const deltaTime = this.clock.getDelta() * 1000;
     
     this.frogs.forEach((frog, index) => {
       if (frog.isFlying) {
@@ -617,7 +919,6 @@ export class Stage {
         );
         
         if (landed) {
-          // Frog has landed, handle scoring etc.
           console.log(`Frog ${index} landed with score: ${frog.getScore()}`);
         }
       }
@@ -646,7 +947,6 @@ export class Stage {
   public followFrog(frogPosition: Vector3): void {
     // In the airplane world, we don't follow the frog with the camera
     // The camera stays fixed to show the beautiful world
-    // But we could add some camera shake or effects here
   }
 
   public resetCamera(): void {
@@ -655,25 +955,23 @@ export class Stage {
     this.camera.lookAt(0, 0, 0);
   }
 
-  // Method to launch a frog from the airplane
+  // Legacy method for compatibility
   public launchFrogFromPlane(frog: Frog, power: number, angle: number): void {
-    // Position the frog at the airplane's position
-    const planePos = this.airplane.mesh.position.clone();
-    frog.position.copy(planePos);
-    
-    // Add the frog to the scene
-    this.scene.add(frog.getMesh());
-    this.frogs.push(frog);
-    this.currentFrog = frog;
-    
-    // Launch the frog with the specified power and angle
-    frog.launch(power, angle);
-    
-    console.log('🛩️ Frog launched from airplane! 🐸');
+    // This is now handled by the crash system
+    console.log('Legacy launch method called - using new crash system instead');
   }
 
   // Get the airplane position for frog launching
   public getAirplanePosition(): Vector3 {
     return this.airplane.mesh.position.clone();
+  }
+
+  // Get current game stats
+  public getGameStats(): { speed: number; planesAvoided: number; active: boolean } {
+    return {
+      speed: this.gameSpeed,
+      planesAvoided: this.planesAvoided,
+      active: this.gameActive
+    };
   }
 }
