@@ -15,7 +15,8 @@ import {
   BoxGeometry,
   MeshBasicMaterial,
   Vector3,
-  Clock
+  Clock,
+  Group
 } from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
 import { Frog } from './frog';
@@ -32,6 +33,7 @@ const Colors = {
   green: 0x458248,
   purple: 0x551A8B,
   lightgreen: 0x629265,
+  frogGreen: 0x32CD32,
 };
 
 class Land {
@@ -252,9 +254,106 @@ class Forest {
   }
 }
 
+class LowPolyFrog {
+  mesh: Group;
+
+  constructor() {
+    this.mesh = new Group();
+
+    // Create frog body (main part)
+    const bodyGeom = new SphereGeometry(8, 8, 6);
+    const bodyMat = new MeshPhongMaterial({
+      color: Colors.frogGreen,
+      flatShading: true,
+    });
+    const body = new Mesh(bodyGeom, bodyMat);
+    body.scale.set(1, 0.8, 1.2);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    this.mesh.add(body);
+
+    // Create eyes
+    const eyeGeom = new SphereGeometry(2, 6, 4);
+    const eyeMat = new MeshPhongMaterial({
+      color: Colors.white,
+      flatShading: true,
+    });
+
+    const leftEye = new Mesh(eyeGeom, eyeMat);
+    leftEye.position.set(-3, 4, 6);
+    leftEye.castShadow = true;
+    this.mesh.add(leftEye);
+
+    const rightEye = new Mesh(eyeGeom, eyeMat);
+    rightEye.position.set(3, 4, 6);
+    rightEye.castShadow = true;
+    this.mesh.add(rightEye);
+
+    // Create eye pupils
+    const pupilGeom = new SphereGeometry(1, 4, 4);
+    const pupilMat = new MeshPhongMaterial({
+      color: 0x000000,
+      flatShading: true,
+    });
+
+    const leftPupil = new Mesh(pupilGeom, pupilMat);
+    leftPupil.position.set(-3, 4, 7);
+    this.mesh.add(leftPupil);
+
+    const rightPupil = new Mesh(pupilGeom, pupilMat);
+    rightPupil.position.set(3, 4, 7);
+    this.mesh.add(rightPupil);
+
+    // Create legs
+    const legGeom = new BoxGeometry(2, 6, 2);
+    const legMat = new MeshPhongMaterial({
+      color: Colors.frogGreen,
+      flatShading: true,
+    });
+
+    // Front legs
+    const frontLeftLeg = new Mesh(legGeom, legMat);
+    frontLeftLeg.position.set(-5, -4, 3);
+    frontLeftLeg.castShadow = true;
+    this.mesh.add(frontLeftLeg);
+
+    const frontRightLeg = new Mesh(legGeom, legMat);
+    frontRightLeg.position.set(5, -4, 3);
+    frontRightLeg.castShadow = true;
+    this.mesh.add(frontRightLeg);
+
+    // Back legs (bigger for jumping)
+    const backLegGeom = new BoxGeometry(3, 8, 3);
+    const backLeftLeg = new Mesh(backLegGeom, legMat);
+    backLeftLeg.position.set(-6, -4, -3);
+    backLeftLeg.castShadow = true;
+    this.mesh.add(backLeftLeg);
+
+    const backRightLeg = new Mesh(backLegGeom, legMat);
+    backRightLeg.position.set(6, -4, -3);
+    backRightLeg.castShadow = true;
+    this.mesh.add(backRightLeg);
+
+    // Create mouth
+    const mouthGeom = new BoxGeometry(6, 1, 2);
+    const mouthMat = new MeshPhongMaterial({
+      color: 0x228B22,
+      flatShading: true,
+    });
+    const mouth = new Mesh(mouthGeom, mouthMat);
+    mouth.position.set(0, 0, 8);
+    mouth.castShadow = true;
+    this.mesh.add(mouth);
+
+    // Scale the entire frog to be visible on the airplane
+    this.mesh.scale.set(0.8, 0.8, 0.8);
+  }
+}
+
 class AirPlane {
   mesh: Object3D;
   propeller: Mesh;
+  frogOnBoard: LowPolyFrog | null = null;
 
   constructor() {
     this.mesh = new Object3D();
@@ -266,10 +365,6 @@ class AirPlane {
       flatShading: true,
     });
 
-    // Modify vertices for cockpit shape
-    const vertices = geomCockpit.attributes.position.array;
-    // Note: In newer Three.js, vertex manipulation is different
-    
     const cockpit = new Mesh(geomCockpit, matCockpit);
     cockpit.castShadow = true;
     cockpit.receiveShadow = true;
@@ -415,6 +510,36 @@ class AirPlane {
     suspension.position.set(-35, -5, 0);
     suspension.rotation.z = -0.3;
     this.mesh.add(suspension);
+
+    // Add a frog to the airplane initially
+    this.addFrogToPlane();
+  }
+
+  addFrogToPlane(): void {
+    if (this.frogOnBoard) {
+      this.mesh.remove(this.frogOnBoard.mesh);
+    }
+
+    this.frogOnBoard = new LowPolyFrog();
+    // Position the frog on top of the cockpit
+    this.frogOnBoard.mesh.position.set(-10, 35, 0);
+    // Make the frog face forward
+    this.frogOnBoard.mesh.rotation.y = 0;
+    this.mesh.add(this.frogOnBoard.mesh);
+  }
+
+  removeFrogFromPlane(): LowPolyFrog | null {
+    if (this.frogOnBoard) {
+      this.mesh.remove(this.frogOnBoard.mesh);
+      const frog = this.frogOnBoard;
+      this.frogOnBoard = null;
+      return frog;
+    }
+    return null;
+  }
+
+  hasFrogOnBoard(): boolean {
+    return this.frogOnBoard !== null;
   }
 }
 
@@ -440,6 +565,7 @@ export class Stage {
   // Frog management
   private frogs: Frog[] = [];
   private currentFrog: Frog | null = null;
+  private flyingLowPolyFrogs: LowPolyFrog[] = [];
 
   private config: PostConfig;
 
@@ -602,6 +728,9 @@ export class Stage {
       // Update frogs
       this.updateFrogs();
 
+      // Update flying low-poly frogs
+      this.updateFlyingLowPolyFrogs();
+
       // Render the scene
       this.renderer.render(this.scene, this.camera);
       requestAnimationFrame(animate);
@@ -624,6 +753,23 @@ export class Stage {
           // Frog has landed, handle scoring etc.
           console.log(`Frog ${index} landed with score: ${frog.getScore()}`);
         }
+      }
+    });
+  }
+
+  private updateFlyingLowPolyFrogs(): void {
+    const deltaTime = this.clock.getDelta();
+    
+    this.flyingLowPolyFrogs.forEach((frog, index) => {
+      // Simple physics for the low-poly frog
+      frog.mesh.position.y -= 50 * deltaTime; // Fall down
+      frog.mesh.rotation.x += 2 * deltaTime; // Spin while falling
+      frog.mesh.rotation.z += 1.5 * deltaTime;
+      
+      // Remove frog when it falls too far
+      if (frog.mesh.position.y < -1000) {
+        this.scene.remove(frog.mesh);
+        this.flyingLowPolyFrogs.splice(index, 1);
       }
     });
   }
@@ -661,23 +807,49 @@ export class Stage {
 
   // Method to launch a frog from the airplane
   public launchFrogFromPlane(frog: Frog, power: number, angle: number): void {
-    // Position the frog at the airplane's position
+    // Remove the low-poly frog from the airplane and launch it
+    const lowPolyFrog = this.airplane.removeFrogFromPlane();
+    if (lowPolyFrog) {
+      // Get the airplane's world position
+      const planeWorldPos = new Vector3();
+      this.airplane.mesh.getWorldPosition(planeWorldPos);
+      
+      // Position the low-poly frog at the airplane's position
+      lowPolyFrog.mesh.position.copy(planeWorldPos);
+      
+      // Add the low-poly frog to the scene for the falling animation
+      this.scene.add(lowPolyFrog.mesh);
+      this.flyingLowPolyFrogs.push(lowPolyFrog);
+      
+      console.log('🛩️ Low-poly frog launched from airplane! 🐸');
+    }
+
+    // Position the game frog at the airplane's position for scoring
     const planePos = this.airplane.mesh.position.clone();
     frog.position.copy(planePos);
     
-    // Add the frog to the scene
+    // Add the game frog to the scene (invisible, just for game logic)
     this.scene.add(frog.getMesh());
+    frog.getMesh().visible = false; // Hide the game frog, we see the low-poly one
     this.frogs.push(frog);
     this.currentFrog = frog;
     
-    // Launch the frog with the specified power and angle
+    // Launch the game frog with the specified power and angle
     frog.launch(power, angle);
     
-    console.log('🛩️ Frog launched from airplane! 🐸');
+    // Add a new frog to the airplane after a delay
+    setTimeout(() => {
+      this.airplane.addFrogToPlane();
+    }, 2000);
   }
 
   // Get the airplane position for frog launching
   public getAirplanePosition(): Vector3 {
     return this.airplane.mesh.position.clone();
+  }
+
+  // Check if airplane has a frog ready to launch
+  public hasReadyFrog(): boolean {
+    return this.airplane.hasFrogOnBoard();
   }
 }
