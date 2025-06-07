@@ -448,15 +448,15 @@ class EnemyPlane {
 
   constructor(planeType: PlaneType = 'normal') {
     this.airplane = new AirPlane(planeType);
-    this.speed = 3 + Math.random() * 4; // Faster base speed
-    this.direction = new Vector3(-1, 0, 0); // Flying towards player
+    this.speed = 4 + Math.random() * 3;
+    this.direction = new Vector3(-1, 0, 0);
     
-    // Position in front of player on the same flight path
-    const playerY = 110; // Same height as player plane
+    // CRITICAL FIX: Position enemy planes on the EXACT same flight path as player
+    // Player plane is at Y=110, so enemy planes should be at Y=110 too
     this.airplane.mesh.position.set(
-      400 + Math.random() * 200, // Far in front
-      playerY + (Math.random() - 0.5) * 60, // Similar height with variation
-      (Math.random() - 0.5) * 200 // Same Z range as player
+      300 + Math.random() * 200,  // Far ahead of player
+      110,                        // EXACT same height as player plane
+      -250                        // EXACT same Z position as player plane
     );
     
     // Face towards player (opposite direction)
@@ -468,7 +468,7 @@ class EnemyPlane {
   update(): void {
     if (!this.active) return;
     
-    // Move towards player
+    // Move towards player on the same flight path
     this.airplane.mesh.position.add(this.direction.clone().multiplyScalar(this.speed));
     
     // Spin propeller
@@ -485,10 +485,10 @@ class EnemyPlane {
     if (!this.active) return false;
     
     const distance = this.airplane.mesh.position.distanceTo(playerPosition);
-    const collisionThreshold = 60; // Collision threshold
+    const collisionThreshold = 50;
     
     if (distance < collisionThreshold) {
-      console.log(`Collision detected! Distance: ${distance}, Threshold: ${collisionThreshold}`);
+      console.log(`COLLISION! Distance: ${distance}, Player: ${playerPosition.x}, ${playerPosition.y}, ${playerPosition.z}, Enemy: ${this.airplane.mesh.position.x}, ${this.airplane.mesh.position.y}, ${this.airplane.mesh.position.z}`);
       return true;
     }
     
@@ -518,7 +518,7 @@ export class Stage {
   private planesAvoided: number = 0;
   private gameActive: boolean = true;
   private lastPlaneSpawn: number = 0;
-  private spawnInterval: number = 3000; // Start with 3 seconds between planes
+  private spawnInterval: number = 2000;
 
   // Mouse tracking
   private mousePos = { x: 0, y: 0 };
@@ -665,8 +665,8 @@ export class Stage {
     const targetY = this.normalize(this.mousePos.y, -0.75, 0.75, 50, 190);
     const targetX = this.normalize(this.mousePos.x, -0.75, 0.75, -100, -20);
 
-    // Move the plane smoothly (faster with game speed)
-    const moveSpeed = 0.1 * this.gameSpeed;
+    // Move the plane smoothly
+    const moveSpeed = 0.1;
     this.airplane.mesh.position.y += (targetY - this.airplane.mesh.position.y) * moveSpeed;
     this.airplane.mesh.position.x += (targetX - this.airplane.mesh.position.x) * moveSpeed;
 
@@ -675,12 +675,21 @@ export class Stage {
     this.airplane.mesh.rotation.x = (this.airplane.mesh.position.y - targetY) * 0.0064;
     this.airplane.mesh.rotation.y = (this.airplane.mesh.position.x - targetX) * 0.0064;
 
-    // Spin the propeller faster with game speed
-    this.airplane.propeller.rotation.x += 0.3 * this.gameSpeed;
+    // Spin the propeller
+    this.airplane.propeller.rotation.x += 0.3;
 
-    // Update frog position to match plane
+    // CRITICAL FIX: Update frog position to be VISIBLE on top of plane
     if (this.frogOnPlane) {
-      this.frogOnPlane.setRelativePosition(this.airplane.mesh.position, this.airplane.mesh.rotation);
+      // Position frog directly on top of the plane, clearly visible
+      this.frogOnPlane.position.copy(this.airplane.mesh.position);
+      this.frogOnPlane.position.y += 30; // Higher above the plane for visibility
+      this.frogOnPlane.position.x += 10; // Slightly forward on the plane
+      
+      // Make frog face the same direction as plane
+      this.frogOnPlane.rotation.copy(this.airplane.mesh.rotation);
+      
+      console.log(`Frog position: ${this.frogOnPlane.position.x}, ${this.frogOnPlane.position.y}, ${this.frogOnPlane.position.z}`);
+      console.log(`Plane position: ${this.airplane.mesh.position.x}, ${this.airplane.mesh.position.y}, ${this.airplane.mesh.position.z}`);
     }
   }
 
@@ -694,14 +703,21 @@ export class Stage {
     const personality = personalities[Math.floor(Math.random() * personalities.length)] as any;
     
     this.frogOnPlane = new Frog(personality);
-    this.frogOnPlane.getMesh().scale.set(0.4, 0.4, 0.4); // Smaller on plane
     
-    // Position on top of plane and face forward
-    this.frogOnPlane.setRelativePosition(this.airplane.mesh.position, this.airplane.mesh.rotation);
+    // CRITICAL FIX: Make frog clearly visible and properly sized
+    this.frogOnPlane.getMesh().scale.set(0.8, 0.8, 0.8); // Larger scale for visibility
+    
+    // Position frog on top of plane
+    this.frogOnPlane.position.copy(this.airplane.mesh.position);
+    this.frogOnPlane.position.y += 30; // High above plane for clear visibility
+    this.frogOnPlane.position.x += 10; // Forward on the plane
+    
+    // Face same direction as plane
+    this.frogOnPlane.rotation.copy(this.airplane.mesh.rotation);
     
     this.scene.add(this.frogOnPlane.getMesh());
     
-    console.log(`Spawned ${personality} frog on plane`);
+    console.log(`SPAWNED ${personality} frog on plane at position: ${this.frogOnPlane.position.x}, ${this.frogOnPlane.position.y}, ${this.frogOnPlane.position.z}`);
   }
 
   private spawnEnemyPlane(): void {
@@ -719,24 +735,24 @@ export class Stage {
 
     const enemyPlane = new EnemyPlane(planeType);
     enemyPlane.airplane.mesh.scale.set(0.35, 0.35, 0.35);
-    enemyPlane.speed *= this.gameSpeed; // Faster with game speed
+    enemyPlane.speed *= this.gameSpeed;
     
     this.enemyPlanes.push(enemyPlane);
     this.scene.add(enemyPlane.airplane.mesh);
     
-    console.log(`Spawned ${planeType} enemy plane`);
+    console.log(`SPAWNED ${planeType} enemy plane at: ${enemyPlane.airplane.mesh.position.x}, ${enemyPlane.airplane.mesh.position.y}, ${enemyPlane.airplane.mesh.position.z}`);
   }
 
   private updateEnemyPlanes(): void {
     const currentTime = Date.now();
     
-    // Spawn new planes
+    // Spawn new planes more frequently
     if (currentTime - this.lastPlaneSpawn > this.spawnInterval && this.gameActive) {
       this.spawnEnemyPlane();
       this.lastPlaneSpawn = currentTime;
       
       // Increase difficulty over time
-      this.spawnInterval = Math.max(1000, this.spawnInterval - 100);
+      this.spawnInterval = Math.max(800, this.spawnInterval - 50);
     }
 
     // Update existing planes
@@ -783,11 +799,10 @@ export class Stage {
 
     // Handle different plane effects
     const effect = enemyPlane.airplane.effect;
-    let launchPower = this.gameSpeed * 15; // Base power from speed
+    let launchPower = this.gameSpeed * 15;
     
     switch (effect.type) {
       case 'destroyer':
-        // Frog destroyed - no launch
         window.dispatchEvent(new CustomEvent('frogDestroyed', { 
           detail: { 
             message: '💥 DESTROYER PLANE! Your frog was obliterated! No launch!',
@@ -807,7 +822,6 @@ export class Stage {
         break;
         
       case 'bouncy':
-        // Will affect frog bounce in frog class
         break;
         
       case 'tiny':
@@ -878,7 +892,7 @@ export class Stage {
     this.gameActive = true;
     this.gameSpeed = 1;
     this.planesAvoided = 0;
-    this.spawnInterval = 3000;
+    this.spawnInterval = 2000;
     this.lastPlaneSpawn = Date.now();
 
     // Clear enemy planes
@@ -908,7 +922,7 @@ export class Stage {
 
   private startRenderLoop(): void {
     const animate = () => {
-      // Rotate world elements (slower when game is faster for better visibility)
+      // Rotate world elements
       const worldSpeed = Math.max(0.3, 1 / this.gameSpeed);
       this.land.mesh.rotation.z += 0.005 * worldSpeed;
       this.orbit.rotation.z += 0.001 * worldSpeed;
