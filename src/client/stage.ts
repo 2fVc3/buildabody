@@ -256,9 +256,13 @@ class Forest {
 
 class LowPolyFrog {
   mesh: Group;
+  velocity: Vector3;
+  isFlying: boolean;
 
   constructor() {
     this.mesh = new Group();
+    this.velocity = new Vector3();
+    this.isFlying = false;
 
     // Create frog body (main part)
     const bodyGeom = new SphereGeometry(8, 8, 6);
@@ -347,6 +351,45 @@ class LowPolyFrog {
 
     // Scale the entire frog to be visible on the airplane
     this.mesh.scale.set(0.8, 0.8, 0.8);
+  }
+
+  launch(power: number, angle: number): void {
+    this.isFlying = true;
+    
+    // Calculate launch velocity with proper physics
+    const adjustedPower = power * 0.8; // Scale down for better visuals
+    this.velocity.set(
+      Math.cos(angle) * adjustedPower * 0.5,
+      adjustedPower * 0.6, // Upward velocity
+      Math.sin(angle) * adjustedPower * 0.5
+    );
+    
+    console.log(`🐸 Frog launched with velocity: ${this.velocity.x.toFixed(2)}, ${this.velocity.y.toFixed(2)}, ${this.velocity.z.toFixed(2)}`);
+  }
+
+  update(deltaTime: number, gravity: number): boolean {
+    if (!this.isFlying) return false;
+
+    // Apply gravity
+    this.velocity.y -= gravity * deltaTime * 0.02;
+
+    // Update position
+    this.mesh.position.add(this.velocity.clone().multiplyScalar(deltaTime * 0.02));
+
+    // Rotation during flight for visual effect
+    this.mesh.rotation.x += this.velocity.length() * deltaTime * 0.002;
+    this.mesh.rotation.z += this.velocity.x * deltaTime * 0.002;
+
+    // Check for ground collision
+    if (this.mesh.position.y <= 0) {
+      this.mesh.position.y = 0;
+      this.isFlying = false;
+      this.velocity.set(0, 0, 0);
+      console.log('🐸 Frog landed!');
+      return true; // Landed
+    }
+
+    return false; // Still flying
   }
 }
 
@@ -567,6 +610,12 @@ export class Stage {
   private currentFrog: Frog | null = null;
   private flyingLowPolyFrogs: LowPolyFrog[] = [];
 
+  // Camera following
+  private defaultCameraPosition: Vector3;
+  private defaultCameraLookAt: Vector3;
+  private isFollowingFrog: boolean = false;
+  private followingFrog: LowPolyFrog | null = null;
+
   private config: PostConfig;
 
   constructor(config: PostConfig, devicePixelRatio: number) {
@@ -607,7 +656,10 @@ export class Stage {
     const aspectRatio = WIDTH / HEIGHT;
 
     this.camera = new PerspectiveCamera(60, aspectRatio, 1, 10000);
-    this.camera.position.set(0, 150, 100);
+    this.defaultCameraPosition = new Vector3(0, 150, 100);
+    this.defaultCameraLookAt = new Vector3(0, 0, 0);
+    this.camera.position.copy(this.defaultCameraPosition);
+    this.camera.lookAt(this.defaultCameraLookAt);
   }
 
   private setupLights(): void {
@@ -714,13 +766,44 @@ export class Stage {
     this.airplane.propeller.rotation.x += 0.3;
   }
 
+  private updateCamera(): void {
+    if (this.isFollowingFrog && this.followingFrog && this.followingFrog.isFlying) {
+      // Follow the flying frog
+      const frogPos = this.followingFrog.mesh.position;
+      const targetCameraPos = new Vector3(
+        frogPos.x + 100,
+        frogPos.y + 50,
+        frogPos.z + 100
+      );
+      
+      // Smooth camera movement
+      this.camera.position.lerp(targetCameraPos, 0.05);
+      this.camera.lookAt(frogPos);
+    } else if (this.isFollowingFrog) {
+      // Frog has landed, return to default view
+      this.isFollowingFrog = false;
+      this.followingFrog = null;
+      
+      // Smoothly return to default camera position
+      this.camera.position.lerp(this.defaultCameraPosition, 0.02);
+      
+      // Check if we're close enough to default position
+      if (this.camera.position.distanceTo(this.defaultCameraPosition) < 5) {
+        this.camera.position.copy(this.defaultCameraPosition);
+        this.camera.lookAt(this.defaultCameraLookAt);
+      }
+    }
+  }
+
   private startRenderLoop(): void {
     const animate = () => {
-      // Rotate world elements
-      this.land.mesh.rotation.z += 0.005;
-      this.orbit.rotation.z += 0.001;
-      this.sky.mesh.rotation.z += 0.003;
-      this.forest.mesh.rotation.z += 0.005;
+      // Only rotate world elements when not following a frog
+      if (!this.isFollowingFrog) {
+        this.land.mesh.rotation.z += 0.005;
+        this.orbit.rotation.z += 0.001;
+        this.sky.mesh.rotation.z += 0.003;
+        this.forest.mesh.rotation.z += 0.005;
+      }
 
       // Update airplane
       this.updatePlane();
@@ -730,6 +813,9 @@ export class Stage {
 
       // Update flying low-poly frogs
       this.updateFlyingLowPolyFrogs();
+
+      // Update camera
+      this.updateCamera();
 
       // Render the scene
       this.renderer.render(this.scene, this.camera);
@@ -761,15 +847,18 @@ export class Stage {
     const deltaTime = this.clock.getDelta();
     
     this.flyingLowPolyFrogs.forEach((frog, index) => {
-      // Simple physics for the low-poly frog
-      frog.mesh.position.y -= 50 * deltaTime; // Fall down
-      frog.mesh.rotation.x += 2 * deltaTime; // Spin while falling
-      frog.mesh.rotation.z += 1.5 * deltaTime;
+      const landed = frog.update(deltaTime, this.config.launch.gravity);
       
-      // Remove frog when it falls too far
-      if (frog.mesh.position.y < -1000) {
+      // Remove frog when it lands or falls too far
+      if (landed || frog.mesh.position.y < -1000) {
         this.scene.remove(frog.mesh);
         this.flyingLowPolyFrogs.splice(index, 1);
+        
+        // If this was the frog we were following, stop following
+        if (this.followingFrog === frog) {
+          this.isFollowingFrog = false;
+          this.followingFrog = null;
+        }
       }
     });
   }
@@ -794,15 +883,15 @@ export class Stage {
   }
 
   public followFrog(frogPosition: Vector3): void {
-    // In the airplane world, we don't follow the frog with the camera
-    // The camera stays fixed to show the beautiful world
-    // But we could add some camera shake or effects here
+    // This method is kept for compatibility but not used in airplane mode
   }
 
   public resetCamera(): void {
     // Reset camera to default airplane world position
-    this.camera.position.set(0, 150, 100);
-    this.camera.lookAt(0, 0, 0);
+    this.isFollowingFrog = false;
+    this.followingFrog = null;
+    this.camera.position.copy(this.defaultCameraPosition);
+    this.camera.lookAt(this.defaultCameraLookAt);
   }
 
   // Method to launch a frog from the airplane
@@ -817,11 +906,18 @@ export class Stage {
       // Position the low-poly frog at the airplane's position
       lowPolyFrog.mesh.position.copy(planeWorldPos);
       
-      // Add the low-poly frog to the scene for the falling animation
+      // Launch the low-poly frog with proper physics
+      lowPolyFrog.launch(power, angle);
+      
+      // Add the low-poly frog to the scene for the flying animation
       this.scene.add(lowPolyFrog.mesh);
       this.flyingLowPolyFrogs.push(lowPolyFrog);
       
-      console.log('🛩️ Low-poly frog launched from airplane! 🐸');
+      // Start following this frog with the camera
+      this.isFollowingFrog = true;
+      this.followingFrog = lowPolyFrog;
+      
+      console.log('🛩️ Low-poly frog launched from airplane with camera following! 🐸');
     }
 
     // Position the game frog at the airplane's position for scoring
