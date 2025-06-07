@@ -237,7 +237,8 @@ export class Game {
         await this.startGame();
         break;
       case 'ended':
-        await this.restartGame();
+        // CRITICAL FIX: Return to main menu instead of restarting immediately
+        await this.returnToMainMenu();
         break;
     }
   }
@@ -248,6 +249,15 @@ export class Game {
     this.updateScore();
     this.updateState('playing');
     this.showQuote('🛩️ Dodge the incoming planes to build up speed! Crash strategically to launch your frog!');
+  }
+
+  private async returnToMainMenu(): Promise<void> {
+    // CRITICAL FIX: Reset to main menu state
+    this.totalScore = 0;
+    this.finalDistance = 0;
+    this.updateScore();
+    this.updateState('ready');
+    this.showQuote('🛩️ Ready for another aerial frog adventure!');
   }
 
   private updateGameStats(planesAvoided: number, speed: string): void {
@@ -268,23 +278,17 @@ export class Game {
       const data = await this.devvit.gameOver(this.totalScore);
       
       if (this.userAllTimeStats && this.totalScore > this.userAllTimeStats.score) {
-        this.gameOverText.innerHTML = `🏆 NEW FLIGHT RECORD! 🏆<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog is... slightly less disappointed in your piloting! 🐸`;
+        this.gameOverText.innerHTML = `🏆 NEW FLIGHT RECORD! 🏆<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog is... slightly less disappointed in your piloting! 🐸<br/><br/>🎮 Click to return to main menu`;
       } else {
-        this.gameOverText.innerHTML = `🎪 AERIAL FROG MISSION COMPLETE! 🎪<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog has filed their flight complaints! 🐸`;
+        this.gameOverText.innerHTML = `🎪 AERIAL FROG MISSION COMPLETE! 🎪<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog has filed their flight complaints! 🐸<br/><br/>🎮 Click to return to main menu`;
       }
       
       this.userAllTimeStats = data.userAllTimeStats;
       this.leaderboardData = data.leaderboard;
       this.updateLeaderboard(data.leaderboard);
     } else {
-      this.gameOverText.innerHTML = `💥 FROG DESTROYED! 💥<br/>Your frog was obliterated by a destroyer plane!<br/>🛩️ No points awarded for frog destruction! 🐸`;
+      this.gameOverText.innerHTML = `💥 FROG DESTROYED! 💥<br/>Your frog was obliterated by a destroyer plane!<br/>🛩️ No points awarded for frog destruction! 🐸<br/><br/>🎮 Click to return to main menu`;
     }
-  }
-
-  private async restartGame(): Promise<void> {
-    setTimeout(async () => {
-      await this.startGame();
-    }, 1000);
   }
 
   private updateScore(): void {

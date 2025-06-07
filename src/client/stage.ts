@@ -462,7 +462,7 @@ class EnemyPlane {
     // Face towards player (opposite direction)
     this.airplane.mesh.rotation.y = Math.PI;
     
-    console.log(`Enemy plane spawned at: ${this.airplane.mesh.position.x}, ${this.airplane.mesh.position.y}, ${this.airplane.mesh.position.z}`);
+    console.log(`SPAWNED enemy plane at: ${this.airplane.mesh.position.x}, ${this.airplane.mesh.position.y}, ${this.airplane.mesh.position.z}`);
   }
 
   update(): void {
@@ -527,6 +527,7 @@ export class Stage {
   // Frog management
   private frogs: Frog[] = [];
   private currentFrog: Frog | null = null;
+  private cameraFollowingFrog: boolean = false;
 
   private config: PostConfig;
 
@@ -707,7 +708,7 @@ export class Stage {
     this.frogOnPlane = new Frog(personality);
     
     // CRITICAL FIX: Make frog clearly visible and properly sized
-    this.frogOnPlane.getMesh().scale.set(1.2, 1.2, 1.2); // Much larger scale for visibility
+    this.frogOnPlane.getMesh().scale.set(0.8, 0.8, 0.8); // Proper scale for visibility
     
     // Position frog on top of plane
     this.frogOnPlane.position.copy(this.airplane.mesh.position);
@@ -872,6 +873,9 @@ export class Stage {
     this.frogs.push(this.frogOnPlane);
     this.frogOnPlane = null;
 
+    // CRITICAL FIX: Start following the frog with camera
+    this.cameraFollowingFrog = true;
+
     // Show crash message
     window.dispatchEvent(new CustomEvent('planeCrash', { 
       detail: { 
@@ -905,6 +909,7 @@ export class Stage {
     this.planesAvoided = 0;
     this.spawnInterval = 2000;
     this.lastPlaneSpawn = Date.now();
+    this.cameraFollowingFrog = false;
 
     // Clear enemy planes
     this.enemyPlanes.forEach(plane => {
@@ -922,13 +927,35 @@ export class Stage {
     // CRITICAL FIX: Always spawn new frog on plane after reset
     this.spawnFrogOnPlane();
 
-    // Reset camera
-    this.camera.position.set(0, 150, 100);
-    this.camera.lookAt(0, 0, 0);
+    // Reset camera to airplane view
+    this.resetCamera();
 
     window.dispatchEvent(new CustomEvent('gameReset', { 
       detail: { message: '🛩️ New frog ready for takeoff! Avoid the incoming planes!' } 
     }));
+  }
+
+  private updateCamera(): void {
+    if (this.cameraFollowingFrog && this.currentFrog && this.currentFrog.isFlying) {
+      // CRITICAL FIX: Follow the flying frog with smooth camera movement
+      const frogPos = this.currentFrog.position;
+      const targetCameraPos = new Vector3(
+        frogPos.x - 50,  // Behind the frog
+        frogPos.y + 30,  // Above the frog
+        frogPos.z + 50   // To the side
+      );
+      
+      // Smooth camera movement
+      this.camera.position.lerp(targetCameraPos, 0.05);
+      this.camera.lookAt(frogPos);
+      
+      console.log(`Camera following frog at: ${frogPos.x}, ${frogPos.y}, ${frogPos.z}`);
+    } else if (!this.cameraFollowingFrog) {
+      // Return to airplane view
+      const targetPos = new Vector3(0, 150, 100);
+      this.camera.position.lerp(targetPos, 0.02);
+      this.camera.lookAt(0, 0, 0);
+    }
   }
 
   private startRenderLoop(): void {
@@ -948,6 +975,9 @@ export class Stage {
 
       // Update frogs
       this.updateFrogs();
+
+      // CRITICAL FIX: Update camera to follow frog
+      this.updateCamera();
 
       // Render the scene
       this.renderer.render(this.scene, this.camera);
@@ -969,6 +999,10 @@ export class Stage {
         
         if (landed) {
           console.log(`Frog ${index} landed with score: ${frog.getScore()}`);
+          // Stop following when frog lands
+          if (frog === this.currentFrog) {
+            this.cameraFollowingFrog = false;
+          }
         }
       }
     });

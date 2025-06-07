@@ -1,4 +1,4 @@
-import { BoxGeometry, Mesh, MeshLambertMaterial, Vector3, SphereGeometry, ConeGeometry, Group } from 'three';
+import { BoxGeometry, Mesh, MeshLambertMaterial, Vector3, SphereGeometry, ConeGeometry, Group, CylinderGeometry } from 'three';
 import { FrogPersonality, FrogEffect } from '../shared/types/postConfig';
 
 const FROG_QUOTES = {
@@ -139,43 +139,105 @@ export class Frog {
     this.group = new Group();
     this.legs = [];
     
-    // Create frog body (main sphere)
-    this.material = new MeshLambertMaterial({ color: this.getPersonalityColor() });
+    // Create frog with VOXEL STYLE like the airplane
+    this.material = new MeshLambertMaterial({ 
+      color: this.getPersonalityColor(),
+      flatShading: true // CRITICAL: Same flat shading as airplane
+    });
     this.originalColor = this.material.color.getHex();
     
-    const bodyGeometry = new SphereGeometry(0.8, 16, 12);
+    // MAIN BODY - Large voxel box like airplane cabin
+    const bodyGeometry = new BoxGeometry(30, 20, 40, 1, 1, 1); // Much larger voxel body
     this.body = new Mesh(bodyGeometry, this.material);
-    this.body.scale.set(1, 0.8, 1.2); // Make it more frog-like
+    this.body.castShadow = true;
+    this.body.receiveShadow = true;
     this.group.add(this.body);
     
-    // Create eyes
-    const eyeMaterial = new MeshLambertMaterial({ color: 0xFFFFFF });
-    const eyeGeometry = new SphereGeometry(0.2, 8, 6);
+    // EYES - Large voxel spheres on top
+    const eyeMaterial = new MeshLambertMaterial({ 
+      color: 0xFFFFFF,
+      flatShading: true
+    });
+    const eyeGeometry = new BoxGeometry(8, 8, 8, 1, 1, 1); // Voxel eyes
     
     this.leftEye = new Mesh(eyeGeometry, eyeMaterial);
-    this.leftEye.position.set(-0.3, 0.4, 0.6);
+    this.leftEye.position.set(-8, 12, 15);
+    this.leftEye.castShadow = true;
+    this.leftEye.receiveShadow = true;
     this.group.add(this.leftEye);
     
     this.rightEye = new Mesh(eyeGeometry, eyeMaterial);
-    this.rightEye.position.set(0.3, 0.4, 0.6);
+    this.rightEye.position.set(8, 12, 15);
+    this.rightEye.castShadow = true;
+    this.rightEye.receiveShadow = true;
     this.group.add(this.rightEye);
     
-    // Create legs
-    const legMaterial = new MeshLambertMaterial({ color: this.getPersonalityColor() });
-    const legGeometry = new ConeGeometry(0.15, 0.6, 6);
+    // EYE PUPILS - Small black voxels
+    const pupilMaterial = new MeshLambertMaterial({ 
+      color: 0x000000,
+      flatShading: true
+    });
+    const pupilGeometry = new BoxGeometry(3, 3, 3, 1, 1, 1);
     
-    for (let i = 0; i < 4; i++) {
-      const leg = new Mesh(legGeometry, legMaterial);
-      const angle = (i / 4) * Math.PI * 2;
-      leg.position.set(
-        Math.cos(angle) * 0.6,
-        -0.5,
-        Math.sin(angle) * 0.4
-      );
-      leg.rotation.x = Math.PI;
-      this.legs.push(leg);
-      this.group.add(leg);
-    }
+    const leftPupil = new Mesh(pupilGeometry, pupilMaterial);
+    leftPupil.position.set(-8, 12, 18);
+    this.group.add(leftPupil);
+    
+    const rightPupil = new Mesh(pupilGeometry, pupilMaterial);
+    rightPupil.position.set(8, 12, 18);
+    this.group.add(rightPupil);
+    
+    // LEGS - Four voxel legs like airplane landing gear
+    const legMaterial = new MeshLambertMaterial({ 
+      color: this.getPersonalityColor(),
+      flatShading: true
+    });
+    const legGeometry = new BoxGeometry(6, 15, 6, 1, 1, 1); // Voxel legs
+    
+    // Front legs
+    const frontLeftLeg = new Mesh(legGeometry, legMaterial);
+    frontLeftLeg.position.set(-10, -17, 12);
+    frontLeftLeg.castShadow = true;
+    frontLeftLeg.receiveShadow = true;
+    this.legs.push(frontLeftLeg);
+    this.group.add(frontLeftLeg);
+    
+    const frontRightLeg = new Mesh(legGeometry, legMaterial);
+    frontRightLeg.position.set(10, -17, 12);
+    frontRightLeg.castShadow = true;
+    frontRightLeg.receiveShadow = true;
+    this.legs.push(frontRightLeg);
+    this.group.add(frontRightLeg);
+    
+    // Back legs
+    const backLeftLeg = new Mesh(legGeometry, legMaterial);
+    backLeftLeg.position.set(-10, -17, -12);
+    backLeftLeg.castShadow = true;
+    backLeftLeg.receiveShadow = true;
+    this.legs.push(backLeftLeg);
+    this.group.add(backLeftLeg);
+    
+    const backRightLeg = new Mesh(legGeometry, legMaterial);
+    backRightLeg.position.set(10, -17, -12);
+    backRightLeg.castShadow = true;
+    backRightLeg.receiveShadow = true;
+    this.legs.push(backRightLeg);
+    this.group.add(backRightLeg);
+    
+    // FEET - Large voxel feet
+    const footMaterial = new MeshLambertMaterial({ 
+      color: this.getPersonalityColor(),
+      flatShading: true
+    });
+    const footGeometry = new BoxGeometry(12, 4, 20, 1, 1, 1); // Large voxel feet
+    
+    this.legs.forEach((leg, index) => {
+      const foot = new Mesh(footGeometry, footMaterial);
+      foot.position.set(0, -10, 8);
+      foot.castShadow = true;
+      foot.receiveShadow = true;
+      leg.add(foot);
+    });
     
     this.originalScale = this.group.scale.clone();
     this.addPersonalityAnimation();
