@@ -124,7 +124,7 @@ body {
   min-width: 120px;
 }
 
-/* Personality Display - High contrast */
+/* CRITICAL FIX: Personality Display - Much smaller and less intrusive */
 #personality {
   position: absolute;
   top: calc(var(--space-16) + 5rem);
@@ -132,45 +132,47 @@ body {
   transform: translateX(-50%);
   background: var(--surface);
   border: 2px solid var(--primary);
-  border-radius: var(--radius-xl);
-  padding: var(--space-3) var(--space-6);
-  font-size: 1.125rem;
-  font-weight: 700;
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-4); /* MUCH smaller padding */
+  font-size: 0.875rem; /* MUCH smaller font */
+  font-weight: 600;
   color: var(--text-primary);
   opacity: 0;
   transition: opacity 0.5s ease;
-  box-shadow: 0 4px 12px var(--shadow-lg);
+  box-shadow: 0 2px 8px var(--shadow);
   z-index: 100;
+  max-width: 250px; /* CRITICAL: Limit width */
 }
 
 .playing #personality {
   opacity: 1;
 }
 
-/* Quote Display - Clean and readable */
+/* CRITICAL FIX: Quote Display - Much smaller and positioned better */
 #quote-display {
   position: absolute;
-  top: 50%;
+  bottom: var(--space-8); /* CRITICAL: Move to bottom instead of center */
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.8);
+  transform: translateX(-50%) scale(0.8);
   background: var(--surface);
   border: 2px solid var(--primary);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6) var(--space-8);
-  font-size: 1.125rem;
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4); /* MUCH smaller padding */
+  font-size: 0.875rem; /* MUCH smaller font */
   font-weight: 600;
   color: var(--text-primary);
   text-align: center;
   opacity: 0;
   transition: all 0.4s ease;
   z-index: 1000;
-  box-shadow: 0 8px 24px var(--shadow-lg);
-  max-width: 90%;
+  box-shadow: 0 4px 12px var(--shadow);
+  max-width: 400px; /* CRITICAL: Limit width */
+  line-height: 1.3; /* Tighter line spacing */
 }
 
 #quote-display.show {
   opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
+  transform: translateX(-50%) scale(1);
 }
 
 /* Button System - Clean and functional */
@@ -343,27 +345,27 @@ body {
   padding: var(--space-6);
 }
 
-/* Leaderboard - Compact and readable */
+/* CRITICAL FIX: Leaderboard - Much smaller and positioned better */
 #leaderboard {
   position: absolute;
   top: var(--space-4);
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - var(--space-8));
-  max-width: 800px;
+  left: var(--space-4); /* CRITICAL: Move to left instead of center */
+  width: auto; /* CRITICAL: Auto width instead of full width */
+  max-width: 500px; /* CRITICAL: Much smaller max width */
   background: var(--surface);
   border: 2px solid var(--primary);
-  border-radius: var(--radius-xl);
-  padding: var(--space-4);
+  border-radius: var(--radius);
+  padding: var(--space-3); /* CRITICAL: Smaller padding */
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   z-index: 100;
-  box-shadow: 0 4px 12px var(--shadow-lg);
+  box-shadow: 0 2px 8px var(--shadow);
+  transform: none; /* CRITICAL: Remove transform */
 }
 
 .leaderboard-title {
-  font-size: 0.875rem;
+  font-size: 0.75rem; /* CRITICAL: Much smaller font */
   font-weight: 700;
   color: var(--text-primary);
   flex-shrink: 0;
@@ -371,7 +373,7 @@ body {
 
 #leaderboard-list {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2); /* CRITICAL: Smaller gap */
   flex: 1;
   overflow-x: auto;
   scrollbar-width: none;
@@ -385,22 +387,22 @@ body {
 .leaderboard-item {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1); /* CRITICAL: Much smaller gap */
   flex-shrink: 0;
   background: var(--primary);
   color: var(--text-light);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2); /* CRITICAL: Much smaller padding */
   border-radius: var(--radius);
-  font-size: 0.75rem;
+  font-size: 0.625rem; /* CRITICAL: Much smaller font */
   font-weight: 600;
-  box-shadow: 0 2px 4px var(--shadow);
+  box-shadow: 0 1px 3px var(--shadow);
 }
 
 .leaderboard-item img {
-  width: 24px;
-  height: 24px;
+  width: 16px; /* CRITICAL: Much smaller avatar */
+  height: 16px;
   border-radius: 50%;
-  border: 2px solid var(--text-light);
+  border: 1px solid var(--text-light);
   object-fit: cover;
 }
 
@@ -566,6 +568,38 @@ body {
   
   .instruction-section {
     padding: var(--space-4);
+  }
+  
+  /* CRITICAL FIX: Mobile adjustments for smaller UI */
+  #leaderboard {
+    max-width: 300px;
+    padding: var(--space-2);
+  }
+  
+  .leaderboard-title {
+    font-size: 0.625rem;
+  }
+  
+  .leaderboard-item {
+    font-size: 0.5rem;
+    padding: 2px 4px;
+  }
+  
+  .leaderboard-item img {
+    width: 12px;
+    height: 12px;
+  }
+  
+  #personality {
+    font-size: 0.75rem;
+    padding: var(--space-1) var(--space-3);
+    max-width: 200px;
+  }
+  
+  #quote-display {
+    font-size: 0.75rem;
+    padding: var(--space-2) var(--space-3);
+    max-width: 300px;
   }
 }
 

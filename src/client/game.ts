@@ -54,6 +54,9 @@ export class Game {
     score: number;
   }[] = [];
 
+  // CRITICAL FIX: Quote timing management
+  private currentQuoteTimeout: number | null = null;
+
   public async prepare(width: number, height: number, devicePixelRatio: number): Promise<void> {
     let initData: InitMessage;
     try {
@@ -126,22 +129,22 @@ export class Game {
   private setupEventListeners(): void {
     // Listen for game events
     window.addEventListener('planeAvoided', (event: any) => {
-      this.showQuote(event.detail.message);
+      this.showQuote(event.detail.message, 2000); // CRITICAL FIX: Shorter duration
       this.updateGameStats(event.detail.planesAvoided, event.detail.speed);
     });
 
     window.addEventListener('planeCrash', (event: any) => {
-      this.showQuote(event.detail.message);
+      this.showQuote(event.detail.message, 3000); // CRITICAL FIX: Medium duration
       this.updateState('crashed');
     });
 
     window.addEventListener('frogDestroyed', (event: any) => {
-      this.showQuote(event.detail.message);
+      this.showQuote(event.detail.message, 3000); // CRITICAL FIX: Medium duration
       this.handleGameOver(0); // No score for destroyed frog
     });
 
     window.addEventListener('gameReset', (event: any) => {
-      this.showQuote(event.detail.message);
+      this.showQuote(event.detail.message, 2000); // CRITICAL FIX: Shorter duration
       // CRITICAL FIX: Don't auto-start, return to ready state
       this.updateState('ready');
       this.updateGameStats(0, '1.0');
@@ -154,7 +157,7 @@ export class Game {
 
     // Listen for frog quotes
     window.addEventListener('frogQuote', (event: any) => {
-      this.showQuote(event.detail.quote);
+      this.showQuote(event.detail.quote, 3000); // CRITICAL FIX: Medium duration for frog quotes
     });
 
     // Menu navigation
@@ -253,7 +256,7 @@ export class Game {
     // CRITICAL FIX: Start the game in the stage
     this.stage.startGame();
     
-    this.showQuote('🛩️ Dodge the incoming planes to build up speed! Crash strategically to launch your frog!');
+    this.showQuote('🛩️ Dodge the incoming planes to build up speed! Crash strategically to launch your frog!', 3000);
   }
 
   private async returnToMainMenu(): Promise<void> {
@@ -262,7 +265,7 @@ export class Game {
     this.finalDistance = 0;
     this.updateScore();
     this.updateState('ready');
-    this.showQuote('🛩️ Ready for another aerial frog adventure!');
+    this.showQuote('🛩️ Ready for another aerial frog adventure!', 2000);
   }
 
   private updateGameStats(planesAvoided: number, speed: string): void {
@@ -300,13 +303,23 @@ export class Game {
     this.scoreContainer.innerHTML = String(this.totalScore);
   }
 
-  private showQuote(quote: string): void {
+  // CRITICAL FIX: Better quote management with timing and queue
+  private showQuote(quote: string, duration: number = 3000): void {
+    // Clear any existing quote timeout
+    if (this.currentQuoteTimeout) {
+      clearTimeout(this.currentQuoteTimeout);
+      this.currentQuoteTimeout = null;
+    }
+
+    // Show the new quote
     this.quoteDisplay.innerHTML = quote;
     this.quoteDisplay.classList.add('show');
     
-    setTimeout(() => {
+    // Set timeout to hide quote after specified duration
+    this.currentQuoteTimeout = window.setTimeout(() => {
       this.quoteDisplay.classList.remove('show');
-    }, 4000);
+      this.currentQuoteTimeout = null;
+    }, duration);
   }
 
   private updateLeaderboard(
