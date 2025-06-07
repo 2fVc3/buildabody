@@ -516,7 +516,7 @@ export class Stage {
   private enemyPlanes: EnemyPlane[] = [];
   private gameSpeed: number = 1;
   private planesAvoided: number = 0;
-  private gameActive: boolean = true;
+  private gameActive: boolean = false; // CRITICAL FIX: Start as false
   private lastPlaneSpawn: number = 0;
   private spawnInterval: number = 2000;
 
@@ -542,7 +542,7 @@ export class Stage {
     this.setupWorld();
     this.setupEventListeners();
     this.startRenderLoop();
-    this.spawnFrogOnPlane();
+    // CRITICAL FIX: Don't spawn frog until game starts
   }
 
   private setupRenderer(devicePixelRatio: number): void {
@@ -683,8 +683,8 @@ export class Stage {
     if (this.frogOnPlane) {
       // Position frog directly on top of the plane, clearly visible
       this.frogOnPlane.position.copy(this.airplane.mesh.position);
-      this.frogOnPlane.position.y += 40; // Much higher above the plane for visibility
-      this.frogOnPlane.position.x += 15; // Forward on the plane
+      this.frogOnPlane.position.y += 20; // Perfect height above the plane for visibility
+      this.frogOnPlane.position.x += 10; // Forward on the plane
       
       // Make frog face the same direction as plane
       this.frogOnPlane.rotation.copy(this.airplane.mesh.rotation);
@@ -708,12 +708,12 @@ export class Stage {
     this.frogOnPlane = new Frog(personality);
     
     // CRITICAL FIX: Make frog clearly visible and properly sized
-    this.frogOnPlane.getMesh().scale.set(0.8, 0.8, 0.8); // Proper scale for visibility
+    this.frogOnPlane.getMesh().scale.set(1.2, 1.2, 1.2); // Perfect scale for visibility
     
     // Position frog on top of plane
     this.frogOnPlane.position.copy(this.airplane.mesh.position);
-    this.frogOnPlane.position.y += 40; // High above plane for clear visibility
-    this.frogOnPlane.position.x += 15; // Forward on the plane
+    this.frogOnPlane.position.y += 20; // Perfect height above plane for clear visibility
+    this.frogOnPlane.position.x += 10; // Forward on the plane
     
     // Face same direction as plane
     this.frogOnPlane.rotation.copy(this.airplane.mesh.rotation);
@@ -904,7 +904,7 @@ export class Stage {
 
   private resetGame(): void {
     // Reset game state
-    this.gameActive = true;
+    this.gameActive = false; // CRITICAL FIX: Don't auto-start
     this.gameSpeed = 1;
     this.planesAvoided = 0;
     this.spawnInterval = 2000;
@@ -924,14 +924,17 @@ export class Stage {
     this.frogs = [];
     this.currentFrog = null;
 
-    // CRITICAL FIX: Always spawn new frog on plane after reset
-    this.spawnFrogOnPlane();
+    // CRITICAL FIX: Don't spawn frog until game starts again
+    if (this.frogOnPlane) {
+      this.scene.remove(this.frogOnPlane.getMesh());
+      this.frogOnPlane = null;
+    }
 
     // Reset camera to airplane view
     this.resetCamera();
 
     window.dispatchEvent(new CustomEvent('gameReset', { 
-      detail: { message: '🛩️ New frog ready for takeoff! Avoid the incoming planes!' } 
+      detail: { message: '🛩️ Ready for another aerial adventure!' } 
     }));
   }
 
@@ -1036,6 +1039,13 @@ export class Stage {
     // Reset camera to default airplane world position
     this.camera.position.set(0, 150, 100);
     this.camera.lookAt(0, 0, 0);
+  }
+
+  // CRITICAL FIX: Method to start the game
+  public startGame(): void {
+    this.gameActive = true;
+    this.spawnFrogOnPlane();
+    console.log('GAME STARTED - Frog spawned and game active');
   }
 
   // Legacy method for compatibility

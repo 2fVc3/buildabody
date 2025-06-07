@@ -142,7 +142,8 @@ export class Game {
 
     window.addEventListener('gameReset', (event: any) => {
       this.showQuote(event.detail.message);
-      this.updateState('playing');
+      // CRITICAL FIX: Don't auto-start, return to ready state
+      this.updateState('ready');
       this.updateGameStats(0, '1.0');
     });
 
@@ -248,6 +249,10 @@ export class Game {
     this.finalDistance = 0;
     this.updateScore();
     this.updateState('playing');
+    
+    // CRITICAL FIX: Start the game in the stage
+    this.stage.startGame();
+    
     this.showQuote('🛩️ Dodge the incoming planes to build up speed! Crash strategically to launch your frog!');
   }
 

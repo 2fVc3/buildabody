@@ -139,71 +139,71 @@ export class Frog {
     this.group = new Group();
     this.legs = [];
     
-    // Create frog with VOXEL STYLE like the airplane
+    // Create frog with PERFECT VOXEL STYLE like the airplane - PERFECT SMALL SIZE
     this.material = new MeshLambertMaterial({ 
       color: this.getPersonalityColor(),
       flatShading: true // CRITICAL: Same flat shading as airplane
     });
     this.originalColor = this.material.color.getHex();
     
-    // MAIN BODY - Large voxel box like airplane cabin
-    const bodyGeometry = new BoxGeometry(30, 20, 40, 1, 1, 1); // Much larger voxel body
+    // MAIN BODY - Perfect small voxel box like airplane cabin (MUCH SMALLER)
+    const bodyGeometry = new BoxGeometry(4, 3, 6, 1, 1, 1); // Perfect small size
     this.body = new Mesh(bodyGeometry, this.material);
     this.body.castShadow = true;
     this.body.receiveShadow = true;
     this.group.add(this.body);
     
-    // EYES - Large voxel spheres on top
+    // EYES - Perfect small voxel boxes on top
     const eyeMaterial = new MeshLambertMaterial({ 
       color: 0xFFFFFF,
       flatShading: true
     });
-    const eyeGeometry = new BoxGeometry(8, 8, 8, 1, 1, 1); // Voxel eyes
+    const eyeGeometry = new BoxGeometry(1, 1, 1, 1, 1, 1); // Small voxel eyes
     
     this.leftEye = new Mesh(eyeGeometry, eyeMaterial);
-    this.leftEye.position.set(-8, 12, 15);
+    this.leftEye.position.set(-1, 2, 2);
     this.leftEye.castShadow = true;
     this.leftEye.receiveShadow = true;
     this.group.add(this.leftEye);
     
     this.rightEye = new Mesh(eyeGeometry, eyeMaterial);
-    this.rightEye.position.set(8, 12, 15);
+    this.rightEye.position.set(1, 2, 2);
     this.rightEye.castShadow = true;
     this.rightEye.receiveShadow = true;
     this.group.add(this.rightEye);
     
-    // EYE PUPILS - Small black voxels
+    // EYE PUPILS - Tiny black voxels
     const pupilMaterial = new MeshLambertMaterial({ 
       color: 0x000000,
       flatShading: true
     });
-    const pupilGeometry = new BoxGeometry(3, 3, 3, 1, 1, 1);
+    const pupilGeometry = new BoxGeometry(0.4, 0.4, 0.4, 1, 1, 1);
     
     const leftPupil = new Mesh(pupilGeometry, pupilMaterial);
-    leftPupil.position.set(-8, 12, 18);
+    leftPupil.position.set(-1, 2, 2.5);
     this.group.add(leftPupil);
     
     const rightPupil = new Mesh(pupilGeometry, pupilMaterial);
-    rightPupil.position.set(8, 12, 18);
+    rightPupil.position.set(1, 2, 2.5);
     this.group.add(rightPupil);
     
-    // LEGS - Four voxel legs like airplane landing gear
+    // LEGS - Four perfect small voxel legs like airplane landing gear
     const legMaterial = new MeshLambertMaterial({ 
       color: this.getPersonalityColor(),
       flatShading: true
     });
-    const legGeometry = new BoxGeometry(6, 15, 6, 1, 1, 1); // Voxel legs
+    const legGeometry = new BoxGeometry(0.8, 2, 0.8, 1, 1, 1); // Perfect small voxel legs
     
     // Front legs
     const frontLeftLeg = new Mesh(legGeometry, legMaterial);
-    frontLeftLeg.position.set(-10, -17, 12);
+    frontLeftLeg.position.set(-1.5, -2.5, 1.5);
     frontLeftLeg.castShadow = true;
     frontLeftLeg.receiveShadow = true;
     this.legs.push(frontLeftLeg);
     this.group.add(frontLeftLeg);
     
     const frontRightLeg = new Mesh(legGeometry, legMaterial);
-    frontRightLeg.position.set(10, -17, 12);
+    frontRightLeg.position.set(1.5, -2.5, 1.5);
     frontRightLeg.castShadow = true;
     frontRightLeg.receiveShadow = true;
     this.legs.push(frontRightLeg);
@@ -211,29 +211,29 @@ export class Frog {
     
     // Back legs
     const backLeftLeg = new Mesh(legGeometry, legMaterial);
-    backLeftLeg.position.set(-10, -17, -12);
+    backLeftLeg.position.set(-1.5, -2.5, -1.5);
     backLeftLeg.castShadow = true;
     backLeftLeg.receiveShadow = true;
     this.legs.push(backLeftLeg);
     this.group.add(backLeftLeg);
     
     const backRightLeg = new Mesh(legGeometry, legMaterial);
-    backRightLeg.position.set(10, -17, -12);
+    backRightLeg.position.set(1.5, -2.5, -1.5);
     backRightLeg.castShadow = true;
     backRightLeg.receiveShadow = true;
     this.legs.push(backRightLeg);
     this.group.add(backRightLeg);
     
-    // FEET - Large voxel feet
+    // FEET - Perfect small voxel feet
     const footMaterial = new MeshLambertMaterial({ 
       color: this.getPersonalityColor(),
       flatShading: true
     });
-    const footGeometry = new BoxGeometry(12, 4, 20, 1, 1, 1); // Large voxel feet
+    const footGeometry = new BoxGeometry(1.5, 0.5, 2.5, 1, 1, 1); // Perfect small voxel feet
     
     this.legs.forEach((leg, index) => {
       const foot = new Mesh(footGeometry, footMaterial);
-      foot.position.set(0, -10, 8);
+      foot.position.set(0, -1.25, 1);
       foot.castShadow = true;
       foot.receiveShadow = true;
       leg.add(foot);
