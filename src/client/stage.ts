@@ -682,8 +682,8 @@ export class Stage {
     if (this.frogOnPlane) {
       // Position frog directly on top of the plane, clearly visible
       this.frogOnPlane.position.copy(this.airplane.mesh.position);
-      this.frogOnPlane.position.y += 30; // Higher above the plane for visibility
-      this.frogOnPlane.position.x += 10; // Slightly forward on the plane
+      this.frogOnPlane.position.y += 40; // Much higher above the plane for visibility
+      this.frogOnPlane.position.x += 15; // Forward on the plane
       
       // Make frog face the same direction as plane
       this.frogOnPlane.rotation.copy(this.airplane.mesh.rotation);
@@ -694,8 +694,10 @@ export class Stage {
   }
 
   private spawnFrogOnPlane(): void {
+    // Remove existing frog if any
     if (this.frogOnPlane) {
       this.scene.remove(this.frogOnPlane.getMesh());
+      this.frogOnPlane = null;
     }
 
     // Create new frog with random personality
@@ -705,12 +707,12 @@ export class Stage {
     this.frogOnPlane = new Frog(personality);
     
     // CRITICAL FIX: Make frog clearly visible and properly sized
-    this.frogOnPlane.getMesh().scale.set(0.8, 0.8, 0.8); // Larger scale for visibility
+    this.frogOnPlane.getMesh().scale.set(1.2, 1.2, 1.2); // Much larger scale for visibility
     
     // Position frog on top of plane
     this.frogOnPlane.position.copy(this.airplane.mesh.position);
-    this.frogOnPlane.position.y += 30; // High above plane for clear visibility
-    this.frogOnPlane.position.x += 10; // Forward on the plane
+    this.frogOnPlane.position.y += 40; // High above plane for clear visibility
+    this.frogOnPlane.position.x += 15; // Forward on the plane
     
     // Face same direction as plane
     this.frogOnPlane.rotation.copy(this.airplane.mesh.rotation);
@@ -718,6 +720,12 @@ export class Stage {
     this.scene.add(this.frogOnPlane.getMesh());
     
     console.log(`SPAWNED ${personality} frog on plane at position: ${this.frogOnPlane.position.x}, ${this.frogOnPlane.position.y}, ${this.frogOnPlane.position.z}`);
+    
+    // Update personality display
+    const personalityDisplay = document.getElementById('personality');
+    if (personalityDisplay) {
+      personalityDisplay.innerHTML = `🐸 ${personality.toUpperCase()} FROG ABOARD`;
+    }
   }
 
   private spawnEnemyPlane(): void {
@@ -883,7 +891,10 @@ export class Stage {
           detail: { score, distance: Math.sqrt(this.currentFrog.position.x ** 2 + this.currentFrog.position.z ** 2) } 
         }));
       }
-      this.resetGame();
+      // CRITICAL FIX: Reset game after 3 seconds instead of immediately
+      setTimeout(() => {
+        this.resetGame();
+      }, 3000);
     }, 8000);
   }
 
@@ -908,7 +919,7 @@ export class Stage {
     this.frogs = [];
     this.currentFrog = null;
 
-    // Spawn new frog on plane
+    // CRITICAL FIX: Always spawn new frog on plane after reset
     this.spawnFrogOnPlane();
 
     // Reset camera
