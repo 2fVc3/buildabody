@@ -273,29 +273,33 @@ body {
   transition-delay: 0.3s;
 }
 
+/* Logo at bottom left of menu screen */
+.menu-logo {
+  position: absolute;
+  bottom: var(--space-6);
+  left: var(--space-6);
+  width: 80px;
+  height: 80px;
+  opacity: 0;
+  transition: all 0.6s ease;
+  z-index: 50;
+}
+
+.ready .menu-logo {
+  opacity: 0.8;
+  transition-delay: 0.5s;
+}
+
+.menu-logo:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
 .menu-buttons {
   display: flex;
   gap: var(--space-4);
   flex-wrap: wrap;
   justify-content: center;
-}
-
-.instructions {
-  text-align: center;
-  color: var(--text-light);
-  font-weight: 500;
-  max-width: 600px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6);
-}
-
-.instructions p {
-  margin: var(--space-2) 0;
-  font-size: 1rem;
-  line-height: 1.5;
 }
 
 /* Game Over */
@@ -600,6 +604,14 @@ body {
     font-size: 0.75rem;
     padding: var(--space-2) var(--space-3);
     max-width: 300px;
+  }
+  
+  /* Mobile logo adjustments */
+  .menu-logo {
+    width: 60px;
+    height: 60px;
+    bottom: var(--space-4);
+    left: var(--space-4);
   }
 }
 
