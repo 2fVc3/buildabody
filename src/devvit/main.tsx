@@ -6,13 +6,13 @@ import { defineConfig } from '@devvit/server';
 import { postConfigNew } from '../server/core/post';
 
 defineConfig({
-  name: '🐸 Frog Launch Madness 🐸',
+  name: '🐸 Froggy Flight 🐸',
   entry: 'index.html',
   height: 'tall',
   menu: { enable: false },
 });
 
-export const Preview: Devvit.BlockComponent<{ text?: string }> = ({ text = 'Loading the frog launcher...' }) => {
+export const Preview: Devvit.BlockComponent<{ text?: string }> = ({ text = 'Loading Froggy Flight...' }) => {
   return (
     <zstack width={'100%'} height={'100%'} alignment="center middle">
       <vstack width={'100%'} height={'100%'} alignment="center middle">
@@ -34,7 +34,7 @@ export const Preview: Devvit.BlockComponent<{ text?: string }> = ({ text = 'Load
 };
 
 Devvit.addMenuItem({
-  label: '🐸 Create Frog Launch Madness 🐸',
+  label: '🐸 Create Froggy Flight 🐸',
   location: 'subreddit',
   forUserType: 'moderator',
   async onPress(event, context) {
@@ -43,7 +43,7 @@ Devvit.addMenuItem({
     try {
       const subreddit = await reddit.getCurrentSubreddit();
       const post = await reddit.submitPost({
-        title: '🐸 Frog Launch Madness - Launch Frogs Into The Void! 🐸',
+        title: '🐸 Froggy Flight - Launch Frogs Into The Sky! 🐸',
         subredditName: subreddit.name,
         preview: <Preview />,
       });
@@ -57,11 +57,11 @@ Devvit.addMenuItem({
         postId: post.id,
       });
 
-      ui.showToast({ text: '🐸 Frog launching madness has begun! 🐸' });
+      ui.showToast({ text: '🐸 Froggy Flight has begun! 🐸' });
       await ui.navigateTo(post.url);
     } catch (error) {
       ui.showToast({ 
-        text: `💥 Frog launcher creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        text: `💥 Froggy Flight creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         type: 'error'
       });
     }
