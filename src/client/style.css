@@ -333,7 +333,7 @@ body {
   z-index: 1001;
 }
 
-/* Game Over */
+/* Game Over - Fixed timing and readability without green overlay */
 .game-over {
   position: absolute;
   top: 0;
@@ -352,22 +352,23 @@ body {
 
 .game-over > * {
   opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.6s ease;
+  transform: translateY(30px);
+  transition: all 0.8s ease;
   /* CRITICAL FIX: Ensure game over elements are interactive */
   pointer-events: auto !important;
 }
 
+/* FIXED: Longer delays for better readability */
 .ended .game-over > *:nth-child(1) {
   opacity: 1;
   transform: translateY(0);
-  transition-delay: 0.1s;
+  transition-delay: 0.5s;
 }
 
 .ended .game-over > *:nth-child(2) {
   opacity: 1;
   transform: translateY(0);
-  transition-delay: 0.2s;
+  transition-delay: 1.2s;
 }
 
 .game-over h2 {
@@ -384,6 +385,52 @@ body {
   padding: var(--space-6);
   /* CRITICAL FIX: Ensure game over text is interactive */
   pointer-events: auto !important;
+}
+
+#game-over-text {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-xl);
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  font-weight: 600;
+  line-height: 1.6;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 2px solid rgba(5, 150, 105, 0.3);
+  max-width: 600px;
+  margin: 0 auto;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#game-over-text:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  border-color: var(--primary);
+}
+
+#game-over-text::after {
+  content: '👆 Click anywhere to continue';
+  display: block;
+  margin-top: var(--space-4);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  opacity: 0;
+  animation: fadeInDelayed 1s ease-in-out 3s forwards;
+}
+
+@keyframes fadeInDelayed {
+  0% { 
+    opacity: 0; 
+    transform: translateY(10px);
+  }
+  100% { 
+    opacity: 0.8; 
+    transform: translateY(0);
+  }
 }
 
 /* CRITICAL FIX: Leaderboard - Much smaller and positioned better */
@@ -656,6 +703,17 @@ body {
     bottom: var(--space-4);
     left: var(--space-4);
   }
+
+  /* Mobile game over adjustments */
+  .game-over h2 {
+    font-size: clamp(1.25rem, 4vw, 2rem);
+    padding: var(--space-4) var(--space-6);
+  }
+  
+  #game-over-text {
+    font-size: clamp(0.875rem, 2vw, 1rem);
+    padding: var(--space-4) var(--space-6);
+  }
 }
 
 /* Accessibility */
@@ -664,6 +722,11 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  
+  #game-over-text::after {
+    animation: none;
+    opacity: 0.8;
   }
 }
 
