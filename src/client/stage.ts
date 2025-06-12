@@ -952,7 +952,7 @@ export class Stage {
     this.resetCamera();
 
     window.dispatchEvent(new CustomEvent('gameReset', { 
-      detail: { message: '🛩️ Ready for another aerial adventure!' } 
+      detail: { message: '🛩️ Ready for another Froggy Flight adventure!' } 
     }));
   }
 
