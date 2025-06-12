@@ -17,7 +17,9 @@ import {
   Vector3,
   Clock,
   ConeGeometry,
-  Group
+  Group,
+  Color,
+  MeshLambertMaterial
 } from 'three';
 import type { PostConfig } from '../shared/types/postConfig';
 import { Frog } from './frog';
@@ -38,53 +40,204 @@ const Colors = {
   darkred: 0x8B0000,
   gold: 0xFFD700,
   silver: 0xC0C0C0,
+  // Environment colors
+  nightBlue: 0x1a1a2e,
+  darkGreen: 0x16213e,
+  snowWhite: 0xf0f8ff,
+  mountainGray: 0x696969,
+  desertSand: 0xf4a460,
+  desertRock: 0x8b4513,
+  cactusGreen: 0x228b22,
+  moonWhite: 0xf5f5dc,
+  starYellow: 0xffff99
+};
+
+// Environment types
+type EnvironmentType = 'day' | 'sunset' | 'night' | 'snowy' | 'desert';
+
+interface EnvironmentConfig {
+  type: EnvironmentType;
+  fogColor: number;
+  fogNear: number;
+  fogFar: number;
+  skyColor: number;
+  groundColor: number;
+  sunColor: number;
+  lightColor: number;
+  lightIntensity: number;
+  ambientColor: number;
+  ambientIntensity: number;
+}
+
+const ENVIRONMENTS: Record<EnvironmentType, EnvironmentConfig> = {
+  day: {
+    type: 'day',
+    fogColor: 0xf7d9aa,
+    fogNear: 100,
+    fogFar: 950,
+    skyColor: 0x87ceeb,
+    groundColor: Colors.lightgreen,
+    sunColor: Colors.yellow,
+    lightColor: 0xffffff,
+    lightIntensity: 0.9,
+    ambientColor: 0xaaaaaa,
+    ambientIntensity: 0.9
+  },
+  sunset: {
+    type: 'sunset',
+    fogColor: 0xff6b35,
+    fogNear: 80,
+    fogFar: 800,
+    skyColor: 0xff4500,
+    groundColor: 0x8b4513,
+    sunColor: 0xff4500,
+    lightColor: 0xff6b35,
+    lightIntensity: 0.7,
+    ambientColor: 0xff8c69,
+    ambientIntensity: 0.6
+  },
+  night: {
+    type: 'night',
+    fogColor: Colors.nightBlue,
+    fogNear: 60,
+    fogFar: 600,
+    skyColor: Colors.nightBlue,
+    groundColor: Colors.darkGreen,
+    sunColor: Colors.moonWhite,
+    lightColor: 0x4169e1,
+    lightIntensity: 0.4,
+    ambientColor: 0x191970,
+    ambientIntensity: 0.3
+  },
+  snowy: {
+    type: 'snowy',
+    fogColor: 0xe6f3ff,
+    fogNear: 50,
+    fogFar: 700,
+    skyColor: 0xb0c4de,
+    groundColor: Colors.snowWhite,
+    sunColor: 0xe0e0e0,
+    lightColor: 0xb0e0e6,
+    lightIntensity: 0.8,
+    ambientColor: 0xf0f8ff,
+    ambientIntensity: 0.7
+  },
+  desert: {
+    type: 'desert',
+    fogColor: 0xffd700,
+    fogNear: 70,
+    fogFar: 900,
+    skyColor: 0xffa500,
+    groundColor: Colors.desertSand,
+    sunColor: 0xffd700,
+    lightColor: 0xffa500,
+    lightIntensity: 1.2,
+    ambientColor: 0xffe4b5,
+    ambientIntensity: 0.8
+  }
 };
 
 class Land {
   mesh: Mesh;
+  material: MeshPhongMaterial;
 
   constructor() {
     const geom = new CylinderGeometry(600, 600, 1700, 40, 10);
     geom.applyMatrix4(new Matrix4().makeRotationX(-Math.PI / 2));
-    const mat = new MeshPhongMaterial({
+    this.material = new MeshPhongMaterial({
       color: Colors.lightgreen,
       flatShading: true,
     });
-    this.mesh = new Mesh(geom, mat);
+    this.mesh = new Mesh(geom, this.material);
     this.mesh.receiveShadow = true;
+  }
+
+  updateEnvironment(env: EnvironmentConfig): void {
+    this.material.color.setHex(env.groundColor);
   }
 }
 
 class Sun {
   mesh: Object3D;
+  sunMesh: Mesh;
+  material: MeshPhongMaterial;
+  stars: Mesh[] = [];
 
   constructor() {
     this.mesh = new Object3D();
     const sunGeom = new SphereGeometry(400, 20, 10);
-    const sunMat = new MeshPhongMaterial({
+    this.material = new MeshPhongMaterial({
       color: Colors.yellow,
       flatShading: true,
     });
-    const sun = new Mesh(sunGeom, sunMat);
-    sun.castShadow = false;
-    sun.receiveShadow = false;
-    this.mesh.add(sun);
+    this.sunMesh = new Mesh(sunGeom, this.material);
+    this.sunMesh.castShadow = false;
+    this.sunMesh.receiveShadow = false;
+    this.mesh.add(this.sunMesh);
+
+    // Create stars for night environment
+    this.createStars();
+  }
+
+  private createStars(): void {
+    const starGeom = new SphereGeometry(5, 6, 4);
+    const starMat = new MeshBasicMaterial({ color: Colors.starYellow });
+
+    for (let i = 0; i < 50; i++) {
+      const star = new Mesh(starGeom, starMat);
+      star.position.set(
+        (Math.random() - 0.5) * 2000,
+        Math.random() * 500 + 200,
+        (Math.random() - 0.5) * 2000
+      );
+      star.visible = false;
+      this.stars.push(star);
+      this.mesh.add(star);
+    }
+  }
+
+  updateEnvironment(env: EnvironmentConfig): void {
+    this.material.color.setHex(env.sunColor);
+    
+    // Show/hide stars based on environment
+    const showStars = env.type === 'night';
+    this.stars.forEach(star => {
+      star.visible = showStars;
+      if (showStars) {
+        star.material.opacity = 0.8 + Math.random() * 0.2;
+      }
+    });
+
+    // Adjust sun position and scale for different environments
+    if (env.type === 'night') {
+      this.sunMesh.scale.set(0.6, 0.6, 0.6); // Smaller moon
+      this.mesh.position.set(200, -50, -850); // Lower position
+    } else if (env.type === 'sunset') {
+      this.sunMesh.scale.set(1.2, 1.2, 1.2); // Larger sunset sun
+      this.mesh.position.set(100, -100, -850); // Lower for sunset
+    } else {
+      this.sunMesh.scale.set(1, 1, 1); // Normal size
+      this.mesh.position.set(0, -30, -850); // Normal position
+    }
   }
 }
 
 class Cloud {
   mesh: Object3D;
+  materials: MeshPhongMaterial[] = [];
 
   constructor() {
     this.mesh = new Object3D();
     const geom = new DodecahedronGeometry(20, 0);
-    const mat = new MeshPhongMaterial({
-      color: Colors.white,
-    });
 
     const nBlocs = 3 + Math.floor(Math.random() * 3);
 
     for (let i = 0; i < nBlocs; i++) {
+      const mat = new MeshPhongMaterial({
+        color: Colors.white,
+      });
+      this.materials.push(mat);
+
       const m = new Mesh(geom, mat);
       m.position.x = i * 15;
       m.position.y = Math.random() * 10;
@@ -97,11 +250,37 @@ class Cloud {
       this.mesh.add(m);
     }
   }
+
+  updateEnvironment(env: EnvironmentConfig): void {
+    let cloudColor = Colors.white;
+    
+    switch (env.type) {
+      case 'sunset':
+        cloudColor = 0xff69b4; // Pink clouds
+        break;
+      case 'night':
+        cloudColor = 0x2f2f2f; // Dark clouds
+        break;
+      case 'snowy':
+        cloudColor = 0xf0f8ff; // Snow clouds
+        break;
+      case 'desert':
+        cloudColor = 0xffefd5; // Sandy clouds
+        break;
+      default:
+        cloudColor = Colors.white;
+    }
+
+    this.materials.forEach(mat => {
+      mat.color.setHex(cloudColor);
+    });
+  }
 }
 
 class Sky {
   mesh: Object3D;
   nClouds: number;
+  clouds: Cloud[] = [];
 
   constructor() {
     this.mesh = new Object3D();
@@ -110,6 +289,8 @@ class Sky {
 
     for (let i = 0; i < this.nClouds; i++) {
       const c = new Cloud();
+      this.clouds.push(c);
+      
       const a = stepAngle * i;
       const h = 800 + Math.random() * 200;
       c.mesh.position.y = Math.sin(a) * h;
@@ -121,61 +302,90 @@ class Sky {
       this.mesh.add(c.mesh);
     }
   }
+
+  updateEnvironment(env: EnvironmentConfig): void {
+    this.clouds.forEach(cloud => cloud.updateEnvironment(env));
+  }
 }
 
 class Tree {
   mesh: Object3D;
+  leaveMaterial: MeshPhongMaterial;
+  trunkMaterial: MeshBasicMaterial;
 
   constructor() {
     this.mesh = new Object3D();
 
-    const matTreeLeaves = new MeshPhongMaterial({
+    this.leaveMaterial = new MeshPhongMaterial({
       color: Colors.green,
       flatShading: true,
     });
 
     const geonTreeBase = new BoxGeometry(10, 20, 10);
-    const matTreeBase = new MeshBasicMaterial({ color: Colors.brown });
-    const treeBase = new Mesh(geonTreeBase, matTreeBase);
+    this.trunkMaterial = new MeshBasicMaterial({ color: Colors.brown });
+    const treeBase = new Mesh(geonTreeBase, this.trunkMaterial);
     treeBase.castShadow = true;
     treeBase.receiveShadow = true;
     this.mesh.add(treeBase);
 
     const geomTreeLeaves1 = new CylinderGeometry(1, 12 * 3, 12 * 3, 4);
-    const treeLeaves1 = new Mesh(geomTreeLeaves1, matTreeLeaves);
+    const treeLeaves1 = new Mesh(geomTreeLeaves1, this.leaveMaterial);
     treeLeaves1.castShadow = true;
     treeLeaves1.receiveShadow = true;
     treeLeaves1.position.y = 20;
     this.mesh.add(treeLeaves1);
 
     const geomTreeLeaves2 = new CylinderGeometry(1, 9 * 3, 9 * 3, 4);
-    const treeLeaves2 = new Mesh(geomTreeLeaves2, matTreeLeaves);
+    const treeLeaves2 = new Mesh(geomTreeLeaves2, this.leaveMaterial);
     treeLeaves2.castShadow = true;
     treeLeaves2.position.y = 40;
     treeLeaves2.receiveShadow = true;
     this.mesh.add(treeLeaves2);
 
     const geomTreeLeaves3 = new CylinderGeometry(1, 6 * 3, 6 * 3, 4);
-    const treeLeaves3 = new Mesh(geomTreeLeaves3, matTreeLeaves);
+    const treeLeaves3 = new Mesh(geomTreeLeaves3, this.leaveMaterial);
     treeLeaves3.castShadow = true;
     treeLeaves3.position.y = 55;
     treeLeaves3.receiveShadow = true;
     this.mesh.add(treeLeaves3);
   }
+
+  updateEnvironment(env: EnvironmentConfig): void {
+    switch (env.type) {
+      case 'snowy':
+        this.leaveMaterial.color.setHex(0x2e8b57); // Darker green for winter
+        this.trunkMaterial.color.setHex(0x654321); // Darker brown
+        break;
+      case 'desert':
+        // Trees become cacti in desert
+        this.leaveMaterial.color.setHex(Colors.cactusGreen);
+        this.trunkMaterial.color.setHex(Colors.cactusGreen);
+        break;
+      case 'night':
+        this.leaveMaterial.color.setHex(0x006400); // Dark green
+        this.trunkMaterial.color.setHex(0x2f1b14); // Dark brown
+        break;
+      default:
+        this.leaveMaterial.color.setHex(Colors.green);
+        this.trunkMaterial.color.setHex(Colors.brown);
+    }
+  }
 }
 
 class Flower {
   mesh: Object3D;
+  stemMaterial: MeshPhongMaterial;
+  petalMaterials: MeshBasicMaterial[] = [];
 
   constructor() {
     this.mesh = new Object3D();
 
     const geomStem = new BoxGeometry(5, 50, 5, 1, 1, 1);
-    const matStem = new MeshPhongMaterial({
+    this.stemMaterial = new MeshPhongMaterial({
       color: Colors.green,
       flatShading: true,
     });
-    const stem = new Mesh(geomStem, matStem);
+    const stem = new Mesh(geomStem, this.stemMaterial);
     stem.castShadow = false;
     stem.receiveShadow = true;
     this.mesh.add(stem);
@@ -194,12 +404,15 @@ class Flower {
 
     const geomPetal = new BoxGeometry(15, 20, 5, 1, 1, 1);
     const matPetal = new MeshBasicMaterial({ color: petalColor });
+    this.petalMaterials.push(matPetal);
 
     geomPetal.translate(12.5, 0, 3);
 
     const petals = [];
     for (let i = 0; i < 4; i++) {
-      petals[i] = new Mesh(geomPetal, matPetal);
+      const petalMat = new MeshBasicMaterial({ color: petalColor });
+      this.petalMaterials.push(petalMat);
+      petals[i] = new Mesh(geomPetal, petalMat);
       petals[i].rotation.z = (i * Math.PI) / 2;
       petals[i].castShadow = true;
       petals[i].receiveShadow = true;
@@ -210,12 +423,39 @@ class Flower {
     petalCore.position.z = 3;
     this.mesh.add(petalCore);
   }
+
+  updateEnvironment(env: EnvironmentConfig): void {
+    switch (env.type) {
+      case 'snowy':
+        // Flowers become snow-covered
+        this.stemMaterial.color.setHex(0x2e8b57);
+        this.petalMaterials.forEach(mat => mat.color.setHex(Colors.snowWhite));
+        break;
+      case 'desert':
+        // Flowers become desert plants
+        this.stemMaterial.color.setHex(Colors.cactusGreen);
+        this.petalMaterials.forEach(mat => mat.color.setHex(0xff6347)); // Desert flower
+        break;
+      case 'night':
+        this.stemMaterial.color.setHex(0x006400);
+        this.petalMaterials.forEach(mat => {
+          const currentColor = mat.color.getHex();
+          mat.color.setHex(currentColor & 0x7f7f7f); // Darken colors
+        });
+        break;
+      default:
+        this.stemMaterial.color.setHex(Colors.green);
+        // Keep original petal colors for day/sunset
+    }
+  }
 }
 
 class Forest {
   mesh: Object3D;
   nTrees: number;
   nFlowers: number;
+  trees: Tree[] = [];
+  flowers: Flower[] = [];
 
   constructor() {
     this.mesh = new Object3D();
@@ -225,6 +465,8 @@ class Forest {
     // Create Trees
     for (let i = 0; i < this.nTrees; i++) {
       const t = new Tree();
+      this.trees.push(t);
+      
       const a = stepAngle * i;
       const h = 605;
       t.mesh.position.y = Math.sin(a) * h;
@@ -242,6 +484,8 @@ class Forest {
 
     for (let i = 0; i < this.nFlowers; i++) {
       const f = new Flower();
+      this.flowers.push(f);
+      
       const a = stepAngle * i;
       const h = 605;
       f.mesh.position.y = Math.sin(a) * h;
@@ -252,6 +496,59 @@ class Forest {
       f.mesh.scale.set(s, s, s);
       this.mesh.add(f.mesh);
     }
+  }
+
+  updateEnvironment(env: EnvironmentConfig): void {
+    this.trees.forEach(tree => tree.updateEnvironment(env));
+    this.flowers.forEach(flower => flower.updateEnvironment(env));
+  }
+}
+
+// Snow particle system for snowy environment
+class SnowSystem {
+  mesh: Object3D;
+  particles: Mesh[] = [];
+
+  constructor() {
+    this.mesh = new Object3D();
+    this.createSnowParticles();
+  }
+
+  private createSnowParticles(): void {
+    const snowGeom = new SphereGeometry(2, 6, 4);
+    const snowMat = new MeshBasicMaterial({ 
+      color: Colors.snowWhite,
+      transparent: true,
+      opacity: 0.8
+    });
+
+    for (let i = 0; i < 200; i++) {
+      const snowflake = new Mesh(snowGeom, snowMat);
+      snowflake.position.set(
+        (Math.random() - 0.5) * 2000,
+        Math.random() * 1000 + 200,
+        (Math.random() - 0.5) * 2000
+      );
+      this.particles.push(snowflake);
+      this.mesh.add(snowflake);
+    }
+  }
+
+  update(): void {
+    this.particles.forEach(particle => {
+      particle.position.y -= 2;
+      particle.position.x += Math.sin(Date.now() * 0.001 + particle.position.z) * 0.5;
+      
+      if (particle.position.y < -100) {
+        particle.position.y = 1000;
+        particle.position.x = (Math.random() - 0.5) * 2000;
+        particle.position.z = (Math.random() - 0.5) * 2000;
+      }
+    });
+  }
+
+  setVisible(visible: boolean): void {
+    this.mesh.visible = visible;
   }
 }
 
@@ -519,6 +816,17 @@ export class Stage {
   private orbit: Object3D;
   private airplane: AirPlane;
   private sun: Sun;
+  private snowSystem: SnowSystem;
+
+  // Lighting
+  private hemisphereLight: HemisphereLight;
+  private shadowLight: DirectionalLight;
+
+  // Environment management
+  private currentEnvironment: EnvironmentType = 'day';
+  private gameStartTime: number = 0;
+  private environmentTransitionTime: number = 0;
+  private isTransitioning: boolean = false;
 
   // Game elements
   private frogOnPlane: Frog | null = null;
@@ -586,25 +894,25 @@ export class Stage {
 
   private setupLights(): void {
     // Hemisphere light for ambient lighting
-    const hemisphereLight = new HemisphereLight(0xaaaaaa, 0x000000, 0.9);
-    this.scene.add(hemisphereLight);
+    this.hemisphereLight = new HemisphereLight(0xaaaaaa, 0x000000, 0.9);
+    this.scene.add(this.hemisphereLight);
 
     // Directional light for shadows
-    const shadowLight = new DirectionalLight(0xffffff, 0.9);
-    shadowLight.position.set(0, 350, 350);
-    shadowLight.castShadow = true;
+    this.shadowLight = new DirectionalLight(0xffffff, 0.9);
+    this.shadowLight.position.set(0, 350, 350);
+    this.shadowLight.castShadow = true;
 
     // Shadow camera setup
-    shadowLight.shadow.camera.left = -650;
-    shadowLight.shadow.camera.right = 650;
-    shadowLight.shadow.camera.top = 650;
-    shadowLight.shadow.camera.bottom = -650;
-    shadowLight.shadow.camera.near = 1;
-    shadowLight.shadow.camera.far = 1000;
-    shadowLight.shadow.mapSize.width = 2048;
-    shadowLight.shadow.mapSize.height = 2048;
+    this.shadowLight.shadow.camera.left = -650;
+    this.shadowLight.shadow.camera.right = 650;
+    this.shadowLight.shadow.camera.top = 650;
+    this.shadowLight.shadow.camera.bottom = -650;
+    this.shadowLight.shadow.camera.near = 1;
+    this.shadowLight.shadow.camera.far = 1000;
+    this.shadowLight.shadow.mapSize.width = 2048;
+    this.shadowLight.shadow.mapSize.height = 2048;
 
-    this.scene.add(shadowLight);
+    this.scene.add(this.shadowLight);
   }
 
   private setupWorld(): void {
@@ -635,11 +943,89 @@ export class Stage {
     this.sun.mesh.position.set(0, -30, -850);
     this.scene.add(this.sun.mesh);
 
+    // Create snow system
+    this.snowSystem = new SnowSystem();
+    this.snowSystem.setVisible(false);
+    this.scene.add(this.snowSystem.mesh);
+
     // Create player airplane
     this.airplane = new AirPlane('normal');
     this.airplane.mesh.scale.set(0.35, 0.35, 0.35);
     this.airplane.mesh.position.set(-40, 110, -250);
     this.scene.add(this.airplane.mesh);
+
+    // Set initial environment
+    this.updateEnvironment('day');
+  }
+
+  private updateEnvironment(newEnv: EnvironmentType): void {
+    if (this.currentEnvironment === newEnv) return;
+
+    console.log(`🌍 Environment changing from ${this.currentEnvironment} to ${newEnv}`);
+    
+    this.currentEnvironment = newEnv;
+    const envConfig = ENVIRONMENTS[newEnv];
+    
+    // Update fog
+    this.scene.fog = new Fog(envConfig.fogColor, envConfig.fogNear, envConfig.fogFar);
+    
+    // Update lighting
+    this.hemisphereLight.color.setHex(envConfig.ambientColor);
+    this.hemisphereLight.intensity = envConfig.ambientIntensity;
+    this.shadowLight.color.setHex(envConfig.lightColor);
+    this.shadowLight.intensity = envConfig.lightIntensity;
+    
+    // Update world elements
+    this.land.updateEnvironment(envConfig);
+    this.sky.updateEnvironment(envConfig);
+    this.forest.updateEnvironment(envConfig);
+    this.sun.updateEnvironment(envConfig);
+    
+    // Handle special environment effects
+    this.snowSystem.setVisible(newEnv === 'snowy');
+    
+    // Dispatch environment change event for UI
+    window.dispatchEvent(new CustomEvent('environmentChange', { 
+      detail: { 
+        environment: newEnv,
+        message: this.getEnvironmentMessage(newEnv)
+      } 
+    }));
+  }
+
+  private getEnvironmentMessage(env: EnvironmentType): string {
+    const messages = {
+      day: '☀️ Beautiful day for flying!',
+      sunset: '🌅 Flying into the sunset!',
+      night: '🌙 Night flight under the stars!',
+      snowy: '❄️ Winter wonderland ahead!',
+      desert: '🏜️ Soaring over the desert!'
+    };
+    return messages[env];
+  }
+
+  private checkEnvironmentTransition(): void {
+    if (!this.gameActive) return;
+
+    const gameTime = Date.now() - this.gameStartTime;
+    const timeInSeconds = gameTime / 1000;
+    
+    // Environment progression based on game time
+    let targetEnv: EnvironmentType = 'day';
+    
+    if (timeInSeconds > 60) { // 1 minute
+      targetEnv = 'desert';
+    } else if (timeInSeconds > 45) { // 45 seconds
+      targetEnv = 'snowy';
+    } else if (timeInSeconds > 30) { // 30 seconds
+      targetEnv = 'night';
+    } else if (timeInSeconds > 15) { // 15 seconds
+      targetEnv = 'sunset';
+    }
+    
+    if (targetEnv !== this.currentEnvironment) {
+      this.updateEnvironment(targetEnv);
+    }
   }
 
   private setupEventListeners(): void {
@@ -737,6 +1123,7 @@ export class Stage {
     const personalityDisplay = document.getElementById('personality');
     if (personalityDisplay) {
       personalityDisplay.innerHTML = `🐸 ${personality.toUpperCase()} FROG ABOARD`;
+      personalityDisplay.style.opacity = '1'; // Show it
       
       // CRITICAL FIX: Auto-hide personality text after 3 seconds
       setTimeout(() => {
@@ -948,6 +1335,9 @@ export class Stage {
       this.frogOnPlane = null;
     }
 
+    // Reset environment to day
+    this.updateEnvironment('day');
+
     // Reset camera to airplane view
     this.resetCamera();
 
@@ -983,6 +1373,14 @@ export class Stage {
 
   private startRenderLoop(): void {
     const animate = () => {
+      // Check for environment transitions
+      this.checkEnvironmentTransition();
+
+      // Update snow system if active
+      if (this.currentEnvironment === 'snowy') {
+        this.snowSystem.update();
+      }
+
       // Rotate world elements
       const worldSpeed = Math.max(0.3, 1 / this.gameSpeed);
       this.land.mesh.rotation.z += 0.005 * worldSpeed;
@@ -1064,6 +1462,7 @@ export class Stage {
   // CRITICAL FIX: Method to start the game
   public startGame(): void {
     this.gameActive = true;
+    this.gameStartTime = Date.now(); // Track game start time for environment changes
     this.spawnFrogOnPlane();
     console.log('GAME STARTED - Frog spawned and game active');
   }
