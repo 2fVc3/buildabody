@@ -1076,17 +1076,20 @@ export class Stage {
     // Spin the propeller
     this.airplane.propeller.rotation.x += 0.3;
 
-    // CRITICAL FIX: Update frog position to be VISIBLE on top of plane
+    // CRITICAL FIX: Position frog PROPERLY VISIBLE in cockpit, facing forward
     if (this.frogOnPlane) {
-      // Position frog directly on top of the plane, clearly visible
+      // Position frog in cockpit with perfect visibility
       this.frogOnPlane.position.copy(this.airplane.mesh.position);
-      this.frogOnPlane.position.y += 20; // Perfect height above the plane for visibility
-      this.frogOnPlane.position.x += 10; // Forward on the plane
+      this.frogOnPlane.position.y += 15; // CRITICAL: Perfect height to see half the frog body
+      this.frogOnPlane.position.x += 5; // CRITICAL: Forward in cockpit area for visibility
+      this.frogOnPlane.position.z += 0; // Keep centered on Z axis
       
-      // Make frog face the same direction as plane
+      // CRITICAL FIX: Make frog face forward (same direction as plane)
       this.frogOnPlane.rotation.copy(this.airplane.mesh.rotation);
+      // Add slight upward tilt so frog head is clearly visible
+      this.frogOnPlane.rotation.x += 0.2;
       
-      console.log(`Frog position: ${this.frogOnPlane.position.x}, ${this.frogOnPlane.position.y}, ${this.frogOnPlane.position.z}`);
+      console.log(`Frog visible in cockpit: ${this.frogOnPlane.position.x}, ${this.frogOnPlane.position.y}, ${this.frogOnPlane.position.z}`);
       console.log(`Plane position: ${this.airplane.mesh.position.x}, ${this.airplane.mesh.position.y}, ${this.airplane.mesh.position.z}`);
     }
   }
@@ -1104,25 +1107,27 @@ export class Stage {
     
     this.frogOnPlane = new Frog(personality);
     
-    // CRITICAL FIX: Make frog clearly visible and properly sized
-    this.frogOnPlane.getMesh().scale.set(1.2, 1.2, 1.2); // Perfect scale for visibility
+    // CRITICAL FIX: Perfect scale for cockpit visibility - half body visible
+    this.frogOnPlane.getMesh().scale.set(1.0, 1.0, 1.0); // Normal scale for clear visibility
     
-    // Position frog on top of plane
+    // CRITICAL FIX: Position frog PROPERLY VISIBLE in cockpit
     this.frogOnPlane.position.copy(this.airplane.mesh.position);
-    this.frogOnPlane.position.y += 20; // Perfect height above plane for clear visibility
-    this.frogOnPlane.position.x += 10; // Forward on the plane
+    this.frogOnPlane.position.y += 15; // Perfect height to see half the frog body
+    this.frogOnPlane.position.x += 5; // Forward in cockpit area for visibility
+    this.frogOnPlane.position.z += 0; // Centered
     
-    // Face same direction as plane
+    // CRITICAL FIX: Face forward like a pilot
     this.frogOnPlane.rotation.copy(this.airplane.mesh.rotation);
+    this.frogOnPlane.rotation.x += 0.2; // Slight upward tilt for visibility
     
     this.scene.add(this.frogOnPlane.getMesh());
     
-    console.log(`SPAWNED ${personality} frog on plane at position: ${this.frogOnPlane.position.x}, ${this.frogOnPlane.position.y}, ${this.frogOnPlane.position.z}`);
+    console.log(`SPAWNED ${personality} frog visible in cockpit at position: ${this.frogOnPlane.position.x}, ${this.frogOnPlane.position.y}, ${this.frogOnPlane.position.z}`);
     
     // Update personality display and auto-hide after 3 seconds
     const personalityDisplay = document.getElementById('personality');
     if (personalityDisplay) {
-      personalityDisplay.innerHTML = `🐸 ${personality.toUpperCase()} FROG ABOARD`;
+      personalityDisplay.innerHTML = `🐸 ${personality.toUpperCase()} FROG PILOT`;
       personalityDisplay.style.opacity = '1'; // Show it
       
       // CRITICAL FIX: Auto-hide personality text after 3 seconds
@@ -1219,7 +1224,7 @@ export class Stage {
       case 'destroyer':
         window.dispatchEvent(new CustomEvent('frogDestroyed', { 
           detail: { 
-            message: '💥 DESTROYER PLANE! Your frog was obliterated! No launch!',
+            message: '💥 DESTROYER PLANE! Your frog pilot was obliterated! No launch!',
             planesAvoided: this.planesAvoided,
             speed: this.gameSpeed.toFixed(1)
           } 
@@ -1464,7 +1469,7 @@ export class Stage {
     this.gameActive = true;
     this.gameStartTime = Date.now(); // Track game start time for environment changes
     this.spawnFrogOnPlane();
-    console.log('GAME STARTED - Frog spawned and game active');
+    console.log('GAME STARTED - Frog spawned visible in cockpit and game active');
   }
 
   // Legacy method for compatibility
