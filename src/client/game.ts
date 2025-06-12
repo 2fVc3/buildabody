@@ -265,7 +265,7 @@ export class Game {
     this.finalDistance = 0;
     this.updateScore();
     this.updateState('ready');
-    this.showQuote('🛩️ Ready for another aerial frog adventure!', 2000);
+    this.showQuote('🛩️ Ready for another Froggy Flight adventure!', 2000);
   }
 
   private updateGameStats(planesAvoided: number, speed: string): void {
@@ -286,9 +286,9 @@ export class Game {
       const data = await this.devvit.gameOver(this.totalScore);
       
       if (this.userAllTimeStats && this.totalScore > this.userAllTimeStats.score) {
-        this.gameOverText.innerHTML = `🏆 NEW FLIGHT RECORD! 🏆<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog is... slightly less disappointed in your piloting! 🐸<br/><br/>🎮 Click to return to main menu`;
+        this.gameOverText.innerHTML = `🏆 NEW FROGGY FLIGHT RECORD! 🏆<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog is... slightly less disappointed in your piloting! 🐸<br/><br/>🎮 Click to return to main menu`;
       } else {
-        this.gameOverText.innerHTML = `🎪 AERIAL FROG MISSION COMPLETE! 🎪<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog has filed their flight complaints! 🐸<br/><br/>🎮 Click to return to main menu`;
+        this.gameOverText.innerHTML = `🎪 FROGGY FLIGHT MISSION COMPLETE! 🎪<br/>Your frog flew ${this.finalDistance.toFixed(1)} units for ${this.totalScore} points!<br/>🛩️ The frog has filed their flight complaints! 🐸<br/><br/>🎮 Click to return to main menu`;
       }
       
       this.userAllTimeStats = data.userAllTimeStats;
@@ -361,7 +361,7 @@ export class Game {
       emptyMessage.style.color = 'var(--text-secondary)';
       emptyMessage.style.fontSize = '18px';
       emptyMessage.style.fontWeight = '600';
-      emptyMessage.innerHTML = '🛩️ No aerial frog pilots yet! Be the first to take flight! 🐸';
+      emptyMessage.innerHTML = '🛩️ No Froggy Flight pilots yet! Be the first to take flight! 🐸';
       this.fullLeaderboardList.appendChild(emptyMessage);
       return;
     }
