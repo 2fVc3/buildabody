@@ -10,6 +10,17 @@ An experimental starter that explores a new way to build applications on Reddit'
 - [Express](https://expressjs.com/): For backend logic
 - [Typescript](https://www.typescriptlang.org/): For type safety
 
+---
+
+## Attribution
+
+- Substantial portions of 3D rendering and scene setup are adapted from [Chris Halliwell’s CodePen - MIT License](https://codepen.io/Zultan/pen/mwGZBP) (original tutorial: [Karim Maaloul's Aviator](https://tympanus.net/codrops/2016/04/26/the-aviator-animating-basic-3d-scene-threejs/)).
+- Original mechanics, characters, and environments were added by [your name].
+- Template based on Reddit's Three.js starter (BSD-3-Clause).
+
+For details, see LICENSE.
+
+
 ## Getting Started
 
 ### Prerequisites
